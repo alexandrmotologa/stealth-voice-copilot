@@ -14,6 +14,11 @@
 
 <img src="docs/images/stealth_voice_copilot_demo.gif" width="420" alt="Stealth Voice Copilot Demo" />
 
+<p align="center">
+  <img src="docs/images/live_evaluated.png" width="48%" alt="Live On-Device Evaluation" />
+  <img src="docs/images/live_profile_sheet.png" width="48%" alt="Carrier Profile Grounding Sheet" />
+</p>
+
 </div>
 
 ## Overview
