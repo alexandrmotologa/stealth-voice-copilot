@@ -1,0 +1,15 @@
+*.iml
+.gradle
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+*.apk
+*.aab
+*.bin
+*.onnx
+!app/src/main/assets/models/silero_vad.onnx
+!gradle/wrapper/gradle-wrapper.jar
