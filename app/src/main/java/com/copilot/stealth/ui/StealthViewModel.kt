@@ -45,6 +45,7 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
 
     init {
         setupVadCallbacks()
+        setupTranscriptCollector()
         startAutoStandbyWatchdog()
     }
 
@@ -61,6 +62,17 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
 
         vadDetector.onVADProbabilityChanged = { prob, rms ->
             _uiState.update { it.copy(speechProbability = prob, audioRmsLevel = rms) }
+        }
+    }
+
+    private fun setupTranscriptCollector() {
+        viewModelScope.launch {
+            sttEngine.transcriptFlow.collect { transcript ->
+                if (transcript.isNotBlank() && _uiState.value.isListening) {
+                    lastSpeechTimestamp = System.currentTimeMillis()
+                    executeInference(transcript)
+                }
+            }
         }
     }
 
@@ -99,8 +111,9 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
 
         _uiState.update { it.copy(isListening = true, errorMessage = null) }
 
-        audioCaptureJob = viewModelScope.launch {
-            if (_uiState.value.audioInputSource == AudioInputSource.MICROPHONE) {
+        if (_uiState.value.audioInputSource == AudioInputSource.MICROPHONE) {
+            sttEngine.startLiveStream {}
+            audioCaptureJob = viewModelScope.launch {
                 try {
                     audioRecorder.start(this)
                     audioRecorder.audioFlow.collect { frame ->
@@ -109,7 +122,9 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
                 } catch (e: Exception) {
                     processIntent(StealthUiIntent.OnError(e.localizedMessage ?: "Audio record error"))
                 }
-            } else {
+            }
+        } else {
+            audioCaptureJob = viewModelScope.launch {
                 testBench.startSyntheticTestPattern(this)
                 testBench.pcmFlow.collect { frame ->
                     vadDetector.processFrame(frame)
@@ -123,6 +138,7 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
         audioCaptureJob = null
         audioRecorder.stop()
         testBench.stop()
+        sttEngine.stopLiveStream()
         vadDetector.reset()
         _uiState.update { it.copy(isListening = false, isProcessing = false) }
     }
@@ -158,7 +174,7 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
     private fun setAudioSource(source: AudioInputSource) {
         _uiState.update { it.copy(audioInputSource = source) }
         if (_uiState.value.isListening) {
-            startAudioStream() // restart with new source
+            startAudioStream()
         }
     }
 
@@ -166,25 +182,8 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             _uiState.update { it.copy(isProcessing = true) }
             val transcript = sttEngine.transcribe(audioBuffer)
-
             if (transcript.isNotBlank()) {
-                val turn = llmEngine.generateResponse(
-                    question = transcript,
-                    recentTurns = _uiState.value.currentTurns,
-                    isRomanianEnabled = _uiState.value.isRomanianEnabled,
-                    forcedEngineType = _uiState.value.activeEngineType
-                )
-
-                _uiState.update { state ->
-                    state.copy(
-                        currentTurns = state.currentTurns + turn,
-                        isProcessing = false,
-                        lastLatencyMs = turn.latencyMs
-                    )
-                }
-
-                hapticHelper.pulseAnswerReady()
-                StealthOverlayService.updateHudText(getApplication(), turn.answerEn)
+                executeInference(transcript)
             } else {
                 _uiState.update { it.copy(isProcessing = false) }
             }
@@ -193,6 +192,10 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
 
     fun handleManualQuery(query: String) {
         if (query.isBlank()) return
+        executeInference(query)
+    }
+
+    private fun executeInference(query: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isProcessing = true) }
             val turn = llmEngine.generateResponse(
@@ -242,6 +245,7 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
 
     override fun onCleared() {
         stopAudioStream()
+        sttEngine.destroy()
         vadDetector.close()
         watchdogJob?.cancel()
         super.onCleared()

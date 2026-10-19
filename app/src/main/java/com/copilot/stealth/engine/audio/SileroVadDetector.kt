@@ -10,7 +10,7 @@ import java.nio.FloatBuffer
 import kotlin.math.sqrt
 
 /**
- * On-device Voice Activity Detector powered by Silero VAD v5 with energy-based fallback.
+ * On-device Voice Activity Detector powered by official Silero VAD with energy-based fallback.
  */
 class SileroVadDetector(
     private val context: Context,
@@ -22,9 +22,11 @@ class SileroVadDetector(
     private var ortEnv: OrtEnvironment? = null
     private var ortSession: OrtSession? = null
 
-    // Hidden states for Silero recurrent network (2, 1, 64)
-    private var hState: Array<Array<FloatArray>> = Array(2) { Array(1) { FloatArray(64) } }
-    private var cState: Array<Array<FloatArray>> = Array(2) { Array(1) { FloatArray(64) } }
+    // Hidden states for Silero v4 (2, 1, 64) or v5 (2, 1, 128)
+    private var isV5Model = false
+    private var stateV5: Array<Array<FloatArray>> = Array(2) { Array(1) { FloatArray(128) } }
+    private var hStateV4: Array<Array<FloatArray>> = Array(2) { Array(1) { FloatArray(64) } }
+    private var cStateV4: Array<Array<FloatArray>> = Array(2) { Array(1) { FloatArray(64) } }
 
     private var isSpeechActive = false
     private var silenceAccumulatedMs = 0L
@@ -43,13 +45,16 @@ class SileroVadDetector(
             val modelFile = copyAssetToCache("models/silero_vad.onnx")
             if (modelFile != null && modelFile.exists() && modelFile.length() > 1000) {
                 ortEnv = OrtEnvironment.getEnvironment()
-                val sessionOptions = OrtSession.SessionOptions()
-                sessionOptions.setInterOpNumThreads(1)
-                sessionOptions.setIntraOpNumThreads(2)
+                val sessionOptions = OrtSession.SessionOptions().apply {
+                    setInterOpNumThreads(1)
+                    setIntraOpNumThreads(2)
+                }
                 ortSession = ortEnv?.createSession(modelFile.absolutePath, sessionOptions)
+                ortSession?.let { session ->
+                    isV5Model = session.inputNames.contains("state")
+                }
             }
         } catch (_: Exception) {
-            // Graceful fallback to energy-based VAD
             ortSession = null
         }
     }
@@ -93,7 +98,7 @@ class SileroVadDetector(
                     val finishedAudio = speechAudioBuffer.toFloatArray()
                     speechAudioBuffer.clear()
                     silenceAccumulatedMs = 0L
-                    if (finishedAudio.size >= sampleRate * 0.5) { // At least 500ms of audio
+                    if (finishedAudio.size >= sampleRate * 0.4) { // At least 400ms of audio
                         onSpeechFinished?.invoke(finishedAudio)
                     }
                 }
@@ -105,8 +110,9 @@ class SileroVadDetector(
         isSpeechActive = false
         silenceAccumulatedMs = 0L
         speechAudioBuffer.clear()
-        hState = Array(2) { Array(1) { FloatArray(64) } }
-        cState = Array(2) { Array(1) { FloatArray(64) } }
+        stateV5 = Array(2) { Array(1) { FloatArray(128) } }
+        hStateV4 = Array(2) { Array(1) { FloatArray(64) } }
+        cStateV4 = Array(2) { Array(1) { FloatArray(64) } }
     }
 
     fun close() {
@@ -126,36 +132,50 @@ class SileroVadDetector(
             val inputBuffer = FloatBuffer.wrap(floatFrame)
             val inputTensor = OnnxTensor.createTensor(env, inputBuffer, longArrayOf(1, floatFrame.size.toLong()))
             val srTensor = OnnxTensor.createTensor(env, longArrayOf(sampleRate.toLong()))
-            val hTensor = OnnxTensor.createTensor(env, hState)
-            val cTensor = OnnxTensor.createTensor(env, cState)
 
-            val inputs = mapOf(
+            val inputs = mutableMapOf<String, OnnxTensor>(
                 "input" to inputTensor,
-                "sr" to srTensor,
-                "h" to hTensor,
-                "c" to cTensor
+                "sr" to srTensor
             )
+
+            val stateTensor = if (isV5Model) {
+                val st = OnnxTensor.createTensor(env, stateV5)
+                inputs["state"] = st
+                st
+            } else {
+                val ht = OnnxTensor.createTensor(env, hStateV4)
+                val ct = OnnxTensor.createTensor(env, cStateV4)
+                inputs["h"] = ht
+                inputs["c"] = ct
+                ht // just keep reference
+            }
 
             val results = session.run(inputs)
             val outputTensor = results.get(0) as? OnnxTensor
             val outputArray = outputTensor?.value as? Array<FloatArray>
             val prob = outputArray?.get(0)?.get(0) ?: 0.0f
 
-            // Update recurrent states
-            val newH = results.get(1) as? OnnxTensor
-            val newC = results.get(2) as? OnnxTensor
-            if (newH != null && newC != null) {
-                @Suppress("UNCHECKED_CAST")
-                hState = newH.value as Array<Array<FloatArray>>
-                @Suppress("UNCHECKED_CAST")
-                cState = newC.value as Array<Array<FloatArray>>
+            if (isV5Model) {
+                val newStateTensor = results.get(1) as? OnnxTensor
+                if (newStateTensor != null) {
+                    @Suppress("UNCHECKED_CAST")
+                    stateV5 = newStateTensor.value as Array<Array<FloatArray>>
+                }
+            } else {
+                val newH = results.get(1) as? OnnxTensor
+                val newC = results.get(2) as? OnnxTensor
+                if (newH != null && newC != null) {
+                    @Suppress("UNCHECKED_CAST")
+                    hStateV4 = newH.value as Array<Array<FloatArray>>
+                    @Suppress("UNCHECKED_CAST")
+                    cStateV4 = newC.value as Array<Array<FloatArray>>
+                }
             }
 
             results.close()
             inputTensor.close()
             srTensor.close()
-            hTensor.close()
-            cTensor.close()
+            stateTensor.close()
 
             prob
         } catch (_: Exception) {
@@ -164,7 +184,6 @@ class SileroVadDetector(
     }
 
     private fun evaluateEnergyFallback(rms: Float): Float {
-        // High-sensitivity RMS threshold mapping (threshold 0.02 ~ 0.5 probability)
         return when {
             rms > 0.06f -> 0.95f
             rms > 0.03f -> 0.75f
@@ -185,7 +204,7 @@ class SileroVadDetector(
     private fun copyAssetToCache(assetPath: String): File? {
         return try {
             val file = File(context.cacheDir, File(assetPath).name)
-            if (file.exists() && file.length() > 0) return file
+            if (file.exists() && file.length() > 1000) return file
 
             context.assets.open(assetPath).use { input ->
                 FileOutputStream(file).use { output ->
