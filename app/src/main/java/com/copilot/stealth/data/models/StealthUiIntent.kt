@@ -9,9 +9,17 @@ sealed interface StealthUiIntent {
     data object ClearHistory : StealthUiIntent
     data object ToggleOverlayMode : StealthUiIntent
     data object CycleEngineType : StealthUiIntent
+    data object CycleThemeMode : StealthUiIntent
+    data object ToggleCalculator : StealthUiIntent
+    data object PanicWipe : StealthUiIntent
+    data object ExportTranscript : StealthUiIntent
     data class SetAudioSource(val source: AudioInputSource) : StealthUiIntent
+    data class SetBluetoothConnected(val isConnected: Boolean) : StealthUiIntent
     data class OnSpeechDetected(val audioBuffer: FloatArray) : StealthUiIntent
     data class OnManualQuery(val query: String) : StealthUiIntent
     data class OnAudioLevelChanged(val rms: Float, val speechProb: Float) : StealthUiIntent
     data class OnError(val message: String) : StealthUiIntent
+    data class CalculateDetention(val appointmentTime: String, val inTime: String, val outTime: String, val rate: Double) : StealthUiIntent
+    data class CalculateRpm(val totalRate: Double, val loadedMiles: Double, val deadheadMiles: Double) : StealthUiIntent
+    data class CalculateHos(val remainingHours: Double, val tripMiles: Double) : StealthUiIntent
 }

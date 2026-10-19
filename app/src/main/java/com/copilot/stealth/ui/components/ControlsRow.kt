@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,11 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.copilot.stealth.data.models.AudioInputSource
 import com.copilot.stealth.data.models.StealthUiState
-import com.copilot.stealth.ui.theme.AmoledBlack
-import com.copilot.stealth.ui.theme.StatusListening
-import com.copilot.stealth.ui.theme.StatusStandby
-import com.copilot.stealth.ui.theme.TextAnswer
-import com.copilot.stealth.ui.theme.TextMetadata
+import com.copilot.stealth.ui.theme.LocalStealthPalette
 
 @Composable
 fun ControlsRow(
@@ -39,13 +36,16 @@ fun ControlsRow(
     onClearHistory: () -> Unit,
     onToggleAudioSource: () -> Unit,
     onRunTestBench: () -> Unit,
+    onExportTranscript: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val palette = LocalStealthPalette.current
+
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(AmoledBlack)
-            .padding(horizontal = 24.dp, vertical = 14.dp),
+            .background(palette.background)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -61,7 +61,24 @@ fun ControlsRow(
             Icon(
                 imageVector = Icons.Default.Delete,
                 contentDescription = "Clear History",
-                tint = TextMetadata,
+                tint = palette.textMetadata,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+
+        // Export session transcript button
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF141414))
+                .clickable { onExportTranscript() },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Share,
+                contentDescription = "Export Session",
+                tint = palette.textMetadata,
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -71,52 +88,53 @@ fun ControlsRow(
             modifier = Modifier
                 .size(54.dp)
                 .clip(CircleShape)
-                .background(if (uiState.isListening) StatusListening else Color(0xFF1A1A1A))
+                .background(if (uiState.isListening) palette.statusActive else Color(0xFF1A1A1A))
                 .clickable { onToggleListening() },
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = if (uiState.isListening) Icons.Default.Mic else Icons.Default.MicOff,
                 contentDescription = "Toggle Listening",
-                tint = if (uiState.isListening) AmoledBlack else TextAnswer,
+                tint = if (uiState.isListening) palette.background else palette.textAnswer,
                 modifier = Modifier.size(24.dp)
             )
         }
 
-        // Test bench trigger button
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        // Audio Source selector chip
+        val sourceLabel = when (uiState.audioInputSource) {
+            AudioInputSource.MICROPHONE -> "SRC: MIC"
+            AudioInputSource.SYSTEM_CALL -> "SRC: CALL"
+            AudioInputSource.TEST_BENCH -> "SRC: BENCH"
+        }
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color(0xFF141414))
+                .clickable { onToggleAudioSource() }
+                .padding(horizontal = 8.dp, vertical = 6.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xFF141414))
-                    .clickable { onToggleAudioSource() }
-                    .padding(horizontal = 8.dp, vertical = 6.dp)
-            ) {
-                Text(
-                    text = if (uiState.audioInputSource == AudioInputSource.MICROPHONE) "SRC: MIC" else "SRC: BENCH",
-                    color = TextMetadata,
-                    fontSize = 10.sp
-                )
-            }
+            Text(
+                text = sourceLabel,
+                color = palette.textMetadata,
+                fontSize = 10.sp
+            )
+        }
 
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF141414))
-                    .clickable { onRunTestBench() },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.PlayArrow,
-                    contentDescription = "Run Test Bench",
-                    tint = TextMetadata,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
+        // Test bench trigger button
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF141414))
+                .clickable { onRunTestBench() },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.PlayArrow,
+                contentDescription = "Run Test Bench",
+                tint = palette.textMetadata,
+                modifier = Modifier.size(18.dp)
+            )
         }
     }
 }

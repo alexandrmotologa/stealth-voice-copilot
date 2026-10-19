@@ -17,12 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.copilot.stealth.data.models.CopilotTurn
-import com.copilot.stealth.ui.theme.DarkBorder
-import com.copilot.stealth.ui.theme.DarkSurface
-import com.copilot.stealth.ui.theme.TextAnswer
-import com.copilot.stealth.ui.theme.TextMetadata
-import com.copilot.stealth.ui.theme.TextQuestion
-import com.copilot.stealth.ui.theme.TextRomanian
+import com.copilot.stealth.ui.theme.LocalStealthPalette
 
 @Composable
 fun TurnCard(
@@ -30,17 +25,19 @@ fun TurnCard(
     isRomanianEnabled: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val palette = LocalStealthPalette.current
+
     Column(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(DarkSurface)
+            .background(palette.surface)
             .padding(14.dp)
     ) {
         // Interlocutor Question
         Text(
             text = turn.transcriptEn,
-            color = TextQuestion,
+            color = palette.textQuestion,
             fontSize = 14.sp,
             lineHeight = 19.sp
         )
@@ -50,7 +47,7 @@ fun TurnCard(
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = turn.transcriptRo,
-                color = TextRomanian,
+                color = palette.textRomanian,
                 fontSize = 12.sp,
                 lineHeight = 16.sp
             )
@@ -58,10 +55,20 @@ fun TurnCard(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Suggested English Answer
-        Text(
+        // Suggested English Answer with dynamic syntax highlighting for money, acronyms, and time
+        val highlightedAnswer = FreightTextFormatter.format(
             text = turn.answerEn,
-            color = TextAnswer,
+            baseColor = palette.textAnswer,
+            overrideColors = FreightTextFormatter.HighlightColors(
+                money = palette.highlightMoney,
+                acronym = palette.highlightAcronym,
+                time = palette.highlightTime
+            )
+        )
+
+        Text(
+            text = highlightedAnswer,
+            color = palette.textAnswer,
             fontSize = 16.sp,
             lineHeight = 22.sp
         )
@@ -71,7 +78,7 @@ fun TurnCard(
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = turn.answerRo,
-                color = TextRomanian,
+                color = palette.textRomanian,
                 fontSize = 13.sp,
                 lineHeight = 18.sp
             )
@@ -88,7 +95,7 @@ fun TurnCard(
             turn.matchedCategory?.let { category ->
                 Text(
                     text = category.uppercase(),
-                    color = TextMetadata,
+                    color = palette.textMetadata,
                     fontSize = 10.sp,
                     letterSpacing = 0.5.sp
                 )
@@ -98,13 +105,13 @@ fun TurnCard(
                 if (turn.latencyMs > 0) {
                     Text(
                         text = "${turn.latencyMs}ms",
-                        color = TextMetadata,
+                        color = palette.textMetadata,
                         fontSize = 10.sp
                     )
                 }
                 Text(
                     text = "${(turn.confidence * 100).toInt()}% conf",
-                    color = TextMetadata,
+                    color = palette.textMetadata,
                     fontSize = 10.sp
                 )
             }

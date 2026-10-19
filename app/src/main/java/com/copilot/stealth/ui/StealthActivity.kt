@@ -33,17 +33,18 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.copilot.stealth.data.models.AudioInputSource
 import com.copilot.stealth.data.models.StealthUiIntent
+import com.copilot.stealth.data.models.StealthUiState
 import com.copilot.stealth.ui.components.ControlsRow
+import com.copilot.stealth.ui.components.FreightMathBar
 import com.copilot.stealth.ui.components.QuickScenarioSelector
 import com.copilot.stealth.ui.components.TopStatusBar
 import com.copilot.stealth.ui.components.TurnCard
-import com.copilot.stealth.ui.theme.AmoledBlack
+import com.copilot.stealth.ui.theme.LocalStealthPalette
 import com.copilot.stealth.ui.theme.StealthVoiceCopilotTheme
-import com.copilot.stealth.ui.theme.TextMetadata
 
 /**
  * Primary covert lockscreen activity displaying continuous interview assistance
- * with true AMOLED black optimization and physical volume key overrides.
+ * with true AMOLED black optimization, freight math HUD, and physical volume key overrides.
  */
 class StealthActivity : ComponentActivity() {
 
@@ -70,21 +71,25 @@ class StealthActivity : ComponentActivity() {
         configureLockscreenFlags()
 
         setContent {
-            StealthVoiceCopilotTheme {
-                val uiState by viewModel.uiState.collectAsState()
+            val uiState by viewModel.uiState.collectAsState()
 
+            StealthVoiceCopilotTheme(themeMode = uiState.themeMode) {
                 StealthScreen(
                     uiState = uiState,
                     onToggleListening = { checkAudioPermissionAndToggle() },
                     onToggleRomanian = { viewModel.processIntent(StealthUiIntent.ToggleRomanian) },
                     onClearHistory = { viewModel.processIntent(StealthUiIntent.ClearHistory) },
+                    onPanicWipe = { viewModel.processIntent(StealthUiIntent.PanicWipe) },
+                    onExportTranscript = { viewModel.processIntent(StealthUiIntent.ExportTranscript) },
                     onToggleOverlay = { viewModel.processIntent(StealthUiIntent.ToggleOverlayMode) },
                     onCycleEngine = { viewModel.processIntent(StealthUiIntent.CycleEngineType) },
+                    onCycleTheme = { viewModel.processIntent(StealthUiIntent.CycleThemeMode) },
+                    onToggleCalculator = { viewModel.processIntent(StealthUiIntent.ToggleCalculator) },
                     onToggleAudioSource = {
-                        val nextSource = if (uiState.audioInputSource == AudioInputSource.MICROPHONE) {
-                            AudioInputSource.TEST_BENCH
-                        } else {
-                            AudioInputSource.MICROPHONE
+                        val nextSource = when (uiState.audioInputSource) {
+                            AudioInputSource.MICROPHONE -> AudioInputSource.SYSTEM_CALL
+                            AudioInputSource.SYSTEM_CALL -> AudioInputSource.TEST_BENCH
+                            AudioInputSource.TEST_BENCH -> AudioInputSource.MICROPHONE
                         }
                         viewModel.processIntent(StealthUiIntent.SetAudioSource(nextSource))
                     },
@@ -122,9 +127,9 @@ class StealthActivity : ComponentActivity() {
         when (keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP -> {
                 val currentTime = System.currentTimeMillis()
-                if (currentTime - lastVolumeUpPressTime < 400) {
-                    // Double click: Clear dialogue history
-                    viewModel.processIntent(StealthUiIntent.ClearHistory)
+                if (currentTime - lastVolumeUpPressTime < 450) {
+                    // Double click: Panic wipe RAM, clipboard and temp files
+                    viewModel.processIntent(StealthUiIntent.PanicWipe)
                     lastVolumeUpPressTime = 0L
                     return true
                 }
@@ -135,7 +140,7 @@ class StealthActivity : ComponentActivity() {
                 if (event?.repeatCount == 0) {
                     volumeDownPressStartTime = System.currentTimeMillis()
                 } else if (event != null && event.repeatCount > 1) {
-                    // Long press detected (multiple repeat events)
+                    // Long press detected: toggle Romanian translations
                     if (System.currentTimeMillis() - volumeDownPressStartTime > 500) {
                         viewModel.processIntent(StealthUiIntent.ToggleRomanian)
                         volumeDownPressStartTime = Long.MAX_VALUE // prevent continuous toggle
@@ -151,17 +156,22 @@ class StealthActivity : ComponentActivity() {
 
 @Composable
 fun StealthScreen(
-    uiState: com.copilot.stealth.data.models.StealthUiState,
+    uiState: StealthUiState,
     onToggleListening: () -> Unit,
     onToggleRomanian: () -> Unit,
     onClearHistory: () -> Unit,
+    onPanicWipe: () -> Unit,
+    onExportTranscript: () -> Unit,
     onToggleOverlay: () -> Unit,
     onCycleEngine: () -> Unit,
+    onCycleTheme: () -> Unit,
+    onToggleCalculator: () -> Unit,
     onToggleAudioSource: () -> Unit,
     onRunTestBench: () -> Unit,
     onScenarioSelected: (String) -> Unit
 ) {
     val listState = rememberLazyListState()
+    val palette = LocalStealthPalette.current
 
     LaunchedEffect(uiState.currentTurns.size) {
         if (uiState.currentTurns.isNotEmpty()) {
@@ -172,15 +182,27 @@ fun StealthScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(AmoledBlack)
+            .background(palette.background)
     ) {
         // Minimal AMOLED Top Status Bar
         TopStatusBar(
             uiState = uiState,
             onToggleRomanian = onToggleRomanian,
             onCycleEngine = onCycleEngine,
-            onToggleOverlay = onToggleOverlay
+            onToggleOverlay = onToggleOverlay,
+            onCycleTheme = onCycleTheme,
+            onToggleCalculator = onToggleCalculator
         )
+
+        // Freight Math Calculator Bar (Collapsible)
+        if (uiState.isCalculatorVisible) {
+            FreightMathBar(
+                uiState = uiState,
+                palette = palette,
+                onQuoteSelected = onScenarioSelected,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+            )
+        }
 
         // Quick freight scenario tester chips
         QuickScenarioSelector(
@@ -192,7 +214,7 @@ fun StealthScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(com.copilot.stealth.ui.theme.DarkSurface)
+                    .background(palette.surface)
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Text(
@@ -216,8 +238,8 @@ fun StealthScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = if (uiState.isListening) "LISTENING FOR INTERVIEWER..." else "PRESS MIC OR RUN BENCH",
-                        color = TextMetadata,
+                        text = if (uiState.isListening) "LISTENING FOR INTERVIEWER..." else "READY - TAP MIC OR BENCH",
+                        color = palette.textMetadata,
                         fontSize = 11.sp,
                         letterSpacing = 1.sp
                     )
@@ -244,7 +266,8 @@ fun StealthScreen(
             onToggleListening = onToggleListening,
             onClearHistory = onClearHistory,
             onToggleAudioSource = onToggleAudioSource,
-            onRunTestBench = onRunTestBench
+            onRunTestBench = onRunTestBench,
+            onExportTranscript = onExportTranscript
         )
     }
 }

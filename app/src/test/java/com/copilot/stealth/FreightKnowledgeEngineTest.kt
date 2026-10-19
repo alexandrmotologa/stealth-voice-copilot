@@ -125,4 +125,29 @@ class FreightKnowledgeEngineTest {
         assertNotNull(result.category)
         assertTrue(result.answerEn.isNotBlank())
     }
+
+    @Test
+    fun testCarrierProfileGrounding() {
+        val customProfile = com.copilot.stealth.data.models.CarrierProfile(
+            companyName = "Titan Logistics Express LLC",
+            mcNumber = "MC-998877",
+            dotNumber = "USDOT 1122334",
+            fleetSize = 42,
+            equipmentTypes = "53ft Reefer Units with continuous cooling"
+        )
+        val customEngine = FreightKnowledgeEngine(carrierProfile = customProfile)
+
+        val mcQuery = "What is your MC number and company name?"
+        val mcResult = customEngine.evaluate(mcQuery, isRomanianEnabled = true)
+        assertEquals("Carrier Identity & Authority", mcResult.category)
+        assertTrue(mcResult.answerEn.contains("Titan Logistics Express LLC"))
+        assertTrue(mcResult.answerEn.contains("MC-998877"))
+        assertTrue(mcResult.answerEn.contains("USDOT 1122334"))
+
+        val fleetQuery = "How many trucks do you currently operate in your fleet?"
+        val fleetResult = customEngine.evaluate(fleetQuery, isRomanianEnabled = true)
+        assertEquals("Fleet & Equipment Specifications", fleetResult.category)
+        assertTrue(fleetResult.answerEn.contains("42 late-model power units"))
+    }
 }
+

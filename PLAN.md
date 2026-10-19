@@ -316,6 +316,15 @@ stealth-voice-copilot/
 * Task 7.3: Generate authentic UI screenshots and animated demo GIF (`docs/images/stealth_voice_copilot_demo.gif`).
 * Task 7.4: Execute portfolio synchronization Phase 2 and publish updates.
 
+### Phase 8: Advanced Production Enhancements
+* Task 8.1: Implement `FreightCalculatorEngine` and Compose `FreightMathBar` for real-time billable detention, RPM deadhead modeling, and FMCSA HOS feasibility checks.
+* Task 8.2: Implement `FreightTextFormatter` for peripheral vision syntax highlighting (green for currency, cyan for legal acronyms, amber for time windows).
+* Task 8.3: Implement `DisplayThemeMode` with `StealthPalettes` (AMOLED Standard, Night Vision Red, Amber Diffuse) for zero reflection in dark conditions.
+* Task 8.4: Implement `CarrierProfileRepository` and ground `FreightKnowledgeEngine` with candidate authority metadata (MC, USDOT, fleet size, factoring, equipment).
+* Task 8.5: Implement `BluetoothAudioMonitor` leveraging `AudioDeviceCallback` to monitor covert wireless earpieces versus phone microphone routing.
+* Task 8.6: Implement `SystemAudioCaptureHelper` supporting direct VoIP in-call audio recording via `AudioPlaybackCaptureConfiguration` and `VOICE_COMMUNICATION`.
+* Task 8.7: Implement `SessionExportManager` for AES-256-GCM encrypted transcript export and Volume Up double-click emergency panic wipe.
+
 ## 8. Freight Logistics Knowledge Base Reference
 
 | Term | Context | Standard Response Pattern |

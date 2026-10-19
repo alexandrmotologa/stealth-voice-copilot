@@ -7,8 +7,51 @@ import com.copilot.stealth.data.models.CopilotTurn
  * against US freight dispatch and billing scenarios with high precision.
  */
 class FreightKnowledgeEngine(
-    private val glossary: List<FreightScenario> = FreightGlossary.scenarios
+    private val glossary: List<FreightScenario> = FreightGlossary.scenarios,
+    private val carrierProfile: com.copilot.stealth.data.models.CarrierProfile = com.copilot.stealth.data.models.CarrierProfile()
 ) {
+
+    private val allScenarios: List<FreightScenario> by lazy {
+        val carrierScenarios = listOf(
+            FreightScenario(
+                category = "Carrier Identity & Authority",
+                triggerKeywords = listOf("mc number", "mc#", "dot number", "what is your mc", "carrier name", "company name", "operating authority", "who do you dispatch for"),
+                sampleQuestions = listOf(
+                    "What is your MC number and company name?",
+                    "Can you give me your MC and DOT numbers?",
+                    "What carrier are you dispatching for?"
+                ),
+                answerEn = "We operate as ${carrierProfile.companyName} under ${carrierProfile.mcNumber} and ${carrierProfile.dotNumber}, based out of ${carrierProfile.homeBase} with verified active authority.",
+                answerRo = "Operam ca ${carrierProfile.companyName}, ${carrierProfile.mcNumber}, ${carrierProfile.dotNumber}, din ${carrierProfile.homeBase} cu autorizatie activa.",
+                questionRo = "Care este numarul de MC si compania pentru care faci dispatch?"
+            ),
+            FreightScenario(
+                category = "Fleet & Equipment Specifications",
+                triggerKeywords = listOf("how many trucks", "fleet size", "what equipment", "reefer or dry van", "trailer type", "equipment type"),
+                sampleQuestions = listOf(
+                    "What equipment do you have available?",
+                    "How many trucks do you currently operate in your fleet?",
+                    "Do you run dry vans or reefers?"
+                ),
+                answerEn = "Our fleet consists of ${carrierProfile.fleetSize} late-model power units pulling ${carrierProfile.equipmentTypes}.",
+                answerRo = "Flota noastra numara ${carrierProfile.fleetSize} camioane moderne ce tracteaza ${carrierProfile.equipmentTypes}.",
+                questionRo = "Ce fel de echipament si cate camioane aveti in flota?"
+            ),
+            FreightScenario(
+                category = "Factoring & Payment Partners",
+                triggerKeywords = listOf("who do you factor with", "factoring company", "credit check", "triumph", "notice of assignment active"),
+                sampleQuestions = listOf(
+                    "Who is your factoring company for credit check?",
+                    "Who do you factor through?",
+                    "Do you have a Notice of Assignment for quick pay?"
+                ),
+                answerEn = "We factor with ${carrierProfile.factoringCompany}. We can send our NOA and W-9 immediately with the carrier packet.",
+                answerRo = "Facturam prin ${carrierProfile.factoringCompany}. Trimitem NOA si formularul W-9 imediat in pachetul de setup.",
+                questionRo = "Cu ce companie de factoring colaborati pentru plata?"
+            )
+        )
+        carrierScenarios + glossary
+    }
 
     data class MatchResult(
         val category: String,
@@ -35,7 +78,7 @@ class FreightKnowledgeEngine(
         var bestScenario: FreightScenario? = null
         var highestScore = 0.0f
 
-        for (scenario in glossary) {
+        for (scenario in allScenarios) {
             val score = calculateScore(queryTokens, cleanQuery, scenario)
             if (score > highestScore) {
                 highestScore = score
@@ -43,7 +86,7 @@ class FreightKnowledgeEngine(
             }
         }
 
-        val scenario = bestScenario ?: glossary.first()
+        val scenario = bestScenario ?: allScenarios.first()
         val normalizedConfidence = highestScore.coerceIn(0.45f, 0.98f)
 
         return MatchResult(

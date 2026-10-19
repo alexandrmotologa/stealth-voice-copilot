@@ -32,7 +32,11 @@ class AudioRecorder(
     val audioFlow: SharedFlow<ShortArray> = _audioFlow.asSharedFlow()
 
     @SuppressLint("MissingPermission")
-    fun start(scope: CoroutineScope) {
+    fun start(
+        scope: CoroutineScope,
+        inputSource: com.copilot.stealth.data.models.AudioInputSource = com.copilot.stealth.data.models.AudioInputSource.MICROPHONE,
+        mediaProjection: android.media.projection.MediaProjection? = null
+    ) {
         if (recordingJob != null) return
 
         val minBufSize = AudioRecord.getMinBufferSize(
@@ -43,12 +47,11 @@ class AudioRecorder(
         val bufferSize = minBufSize.coerceAtLeast(frameSize * 4)
 
         try {
-            audioRecord = AudioRecord(
-                MediaRecorder.AudioSource.VOICE_RECOGNITION,
-                sampleRate,
-                AudioFormat.CHANNEL_IN_MONO,
-                AudioFormat.ENCODING_PCM_16BIT,
-                bufferSize
+            audioRecord = SystemAudioCaptureHelper.createAudioRecord(
+                inputSource = inputSource,
+                sampleRate = sampleRate,
+                bufferSize = bufferSize,
+                mediaProjection = mediaProjection
             )
 
             val audioSessionId = audioRecord?.audioSessionId ?: 0

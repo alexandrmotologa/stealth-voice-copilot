@@ -26,9 +26,16 @@ The entire processing pipeline runs strictly on-device without internet access, 
 
 * **On-Device Speech Pipeline:** Combines Silero VAD v5 with Sherpa-ONNX Whisper and streaming models for rapid transcription directly on the Tensor G1 processor.
 * **Hybrid Inference Coordinator:** Employs an on-device quantized LLM (Llama 3.2 1B or Gemma 2 2B via MediaPipe GenAI) backed by a deterministic logistics knowledge engine for sub-5ms fallback and high reliability.
+* **Carrier Profile Grounding:** Injects real candidate carrier authority data (MC number, USDOT, fleet capacity, equipment types, factoring partner, and baseline accessorial rates) directly into dialogue answers.
+* **Real-Time Freight Math Engine:** Live on-screen calculator (`FreightMathBar`) computing billable detention hours, gross and net RPM, and FMCSA HOS feasibility windows with one-tap quote insertion.
+* **Covert Glance Syntax Highlighting:** Formats answers with peripheral vision cues highlighting monetary amounts in green, legal freight acronyms in cyan, and critical time limits in amber.
+* **Zero-Light Covert Privacy Themes:** Supports AMOLED Standard, Night Vision Red, and Amber Diffuse display modes to eliminate light reflection in dark or low-visibility interview environments.
+* **Bluetooth Audio Route Detection:** Continuously detects covert wireless earpieces (Pixel Buds, BLE headsets) versus internal phone microphone routing with on-screen route confirmation.
+* **Internal Audio and VoIP In-Call Capture:** Supports capturing internal speakerphone or conference calls via `AudioPlaybackCaptureConfiguration` and `VOICE_COMMUNICATION` capture streams.
+* **Encrypted Transcripts and Panic Wipe:** Exports full question-and-answer transcripts secured by AES-256-GCM encryption, while a rapid Volume Up double-click triggers an emergency panic wipe of RAM, disk cache, and clipboard.
 * **AMOLED True Black Overlay:** Renders directly over the lockscreen without requiring device unlock, using `#000000` background to minimize battery drain and reduce display illumination.
 * **Floating System HUD:** Provides a secondary discreet overlay mode that displays a single line of suggested speech over conference apps such as Zoom or Google Meet.
-* **Covert Physical Controls:** Volume Up double-tap resets context; Volume Down long-press toggles Romanian translations; Quick Settings tile enables one-tap activation from the lockscreen shade.
+* **Covert Physical Controls:** Volume Up double-tap initiates panic wipe; Volume Down long-press toggles Romanian translations; Quick Settings tile enables one-tap activation from the lockscreen shade.
 * **Acoustic Preprocessing:** Leverages hardware-backed Acoustic Echo Cancellation (AEC) and Noise Suppression to filter HVAC hum and speaker echo.
 * **US Freight Domain Grounding:** Preloaded with industry practices covering Rate Confirmations, Bill of Lading (BOL), Proof of Delivery (POD), Factoring NOAs, Detention calculations, Layover fees, and TONU claims.
 

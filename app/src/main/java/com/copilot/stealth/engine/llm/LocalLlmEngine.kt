@@ -3,6 +3,7 @@ package com.copilot.stealth.engine.llm
 import android.content.Context
 import com.copilot.stealth.data.models.CopilotTurn
 import com.copilot.stealth.data.models.EngineType
+import com.copilot.stealth.data.repository.CarrierProfileRepository
 import com.copilot.stealth.data.repository.FreightKnowledgeEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -14,7 +15,10 @@ import java.io.File
  */
 class LocalLlmEngine(
     private val context: Context,
-    private val knowledgeEngine: FreightKnowledgeEngine = FreightKnowledgeEngine()
+    private val carrierProfileRepository: CarrierProfileRepository = CarrierProfileRepository(context),
+    private val knowledgeEngine: FreightKnowledgeEngine = FreightKnowledgeEngine(
+        carrierProfile = carrierProfileRepository.getProfile()
+    )
 ) {
 
     private var activeEngineType = EngineType.HYBRID
