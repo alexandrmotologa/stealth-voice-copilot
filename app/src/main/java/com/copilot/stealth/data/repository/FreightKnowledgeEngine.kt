@@ -247,7 +247,25 @@ class FreightKnowledgeEngine(
             )
         }
 
-        // 2. Personal introduction / Say something about you / Tell me about yourself
+        // 2. Location & Origin
+        val isWhereFrom = cleanQuery.contains("where are you from") ||
+                cleanQuery.contains("where do you live") ||
+                cleanQuery.contains("where are you located") ||
+                cleanQuery.contains("where are you based") ||
+                cleanQuery.contains("what is your location") ||
+                cleanQuery.contains("where you from") ||
+                cleanQuery == "where are you from"
+        if (isWhereFrom) {
+            return MatchResult(
+                category = "Location & Origin",
+                confidence = 0.98f,
+                answerEn = "I am based in Moldova, working remotely and fully available to align with US business hours.",
+                answerRo = if (isRomanianEnabled) "Sunt stabilit in Moldova, lucrez remote si sunt complet disponibil pentru fusul orar din SUA." else null,
+                questionRo = if (isRomanianEnabled) "De unde esti / Unde locuiesti?" else null
+            )
+        }
+
+        // 3. Personal introduction / Say something about you / Tell me about yourself
         val isAboutYou = cleanQuery.contains("about you") ||
                 cleanQuery.contains("about yourself") ||
                 cleanQuery.contains("say something about you") ||
@@ -423,7 +441,8 @@ class FreightKnowledgeEngine(
 
     private fun tokenize(text: String): Set<String> {
         val stopWords = setOf(
-            "the", "a", "an", "is", "and", "or", "in", "on", "at", "to", "for", "of", "with"
+            "the", "a", "an", "is", "are", "you", "your", "we", "i", "me", "my",
+            "and", "or", "in", "on", "at", "to", "for", "of", "with", "do", "does", "did", "can", "could", "would", "how", "what", "where"
         )
         return text.split(Regex("[^a-zA-Z0-9]+"))
             .filter { it.isNotBlank() && !stopWords.contains(it) && it.length > 1 }
@@ -434,6 +453,9 @@ class FreightKnowledgeEngine(
         fun quickTranslate(text: String): String {
             val lower = text.trim().lowercase()
 
+            if (lower.contains("where are you from") || lower.contains("where do you live") || lower.contains("where are you located") || lower.contains("where are you based") || lower.contains("where you from")) {
+                return "De unde esti / Unde locuiesti?"
+            }
             if (lower.startsWith("hi") || lower.startsWith("hello") || lower.startsWith("hey")) {
                 if (lower.contains("how are you")) return "Buna, ce mai faci?"
                 if (lower.contains("can you hear me")) return "Salut, ma auzi bine?"

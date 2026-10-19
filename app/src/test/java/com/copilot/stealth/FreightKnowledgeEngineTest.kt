@@ -152,6 +152,12 @@ class FreightKnowledgeEngineTest {
         val aboutRes = engine.evaluate("tell me about yourself", isRomanianEnabled = true)
         assertEquals("Personal Introduction", aboutRes.category)
         assertTrue(aboutRes.answerEn.contains("dedicated professional"))
+
+        // "where are you from"
+        val whereRes = engine.evaluate("where are you from", isRomanianEnabled = true)
+        assertEquals("Location & Origin", whereRes.category)
+        assertTrue(whereRes.answerEn.contains("Moldova"))
+        assertEquals("De unde esti / Unde locuiesti?", whereRes.questionRo)
     }
 
     @Test

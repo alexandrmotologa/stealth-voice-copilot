@@ -112,6 +112,7 @@ class CloudLlmClient(
             val responseCode = connection.responseCode
             if (responseCode == HttpURLConnection.HTTP_OK) {
                 val responseText = connection.inputStream.bufferedReader().use { it.readText() }
+                android.util.Log.d(TAG, "Groq Cloud response received in ${System.currentTimeMillis() - startTimeMs}ms: $responseText")
                 val rootJson = JSONObject(responseText)
                 val choices = rootJson.getJSONArray("choices")
                 if (choices.length() > 0) {
@@ -131,10 +132,13 @@ class CloudLlmClient(
                         matchedCategory = "AI Neural (${modelName.substringAfterLast("/")})"
                     )
                 }
+            } else {
+                val err = connection.errorStream?.bufferedReader()?.use { it.readText() }
+                android.util.Log.e(TAG, "Groq HTTP error code $responseCode: $err")
             }
             null
-        } catch (_: Exception) {
-            // Non-fatal, gracefully fall back to local engine
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Exception in CloudLlmClient: ${e.message}", e)
             null
         }
     }
@@ -160,5 +164,9 @@ class CloudLlmClient(
         } catch (_: Exception) {}
 
         return Triple(null, rawJson.trim(), null)
+    }
+
+    companion object {
+        private const val TAG = "CloudLlmClient"
     }
 }
