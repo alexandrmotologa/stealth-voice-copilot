@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">Stealth Voice Copilot</string>
+    <string name="tile_label">Copilot</string>
+    <string name="tile_description">Toggle Stealth Voice Copilot audio monitoring</string>
+    <string name="state_listening">Listening</string>
+    <string name="state_idle">Standby</string>
+    <string name="state_processing">Inferring</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_toggle_ro">RO</string>
+    <string name="action_overlay">HUD</string>
+    <string name="channel_name">Voice Copilot Service</string>
+    <string name="channel_description">Maintains offline audio capture during interviews</string>
+    <string name="notification_title">Stealth Copilot Active</string>
+    <string name="notification_text">Monitoring audio for logistics interview prompts</string>
+</resources>

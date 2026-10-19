@@ -1,0 +1,202 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.copilot.stealth.debug"
+4    android:versionCode="1"
+5    android:versionName="1.0.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="26"
+9        android:targetSdkVersion="34" />
+10
+11    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+11-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:4:5-71
+11-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:4:22-68
+12    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+12-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:5:5-77
+12-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:5:22-74
+13    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+13-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:6:5-88
+13-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:6:22-85
+14    <uses-permission android:name="android.permission.WAKE_LOCK" />
+14-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:7:5-68
+14-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:7:22-65
+15    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+15-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:8:5-78
+15-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:8:22-75
+16    <uses-permission android:name="android.permission.VIBRATE" />
+16-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:9:5-66
+16-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:9:22-63
+17    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+17-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:10:5-77
+17-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:10:22-74
+18
+19    <permission
+19-->[androidx.core:core:1.15.0] C:\Users\alexander\.gradle\caches\transforms-4\c9662211167aac95323a12d3fe1bfca5\transformed\core-1.15.0\AndroidManifest.xml:22:5-24:47
+20        android:name="com.copilot.stealth.debug.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+20-->[androidx.core:core:1.15.0] C:\Users\alexander\.gradle\caches\transforms-4\c9662211167aac95323a12d3fe1bfca5\transformed\core-1.15.0\AndroidManifest.xml:23:9-81
+21        android:protectionLevel="signature" />
+21-->[androidx.core:core:1.15.0] C:\Users\alexander\.gradle\caches\transforms-4\c9662211167aac95323a12d3fe1bfca5\transformed\core-1.15.0\AndroidManifest.xml:24:9-44
+22
+23    <uses-permission android:name="com.copilot.stealth.debug.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+23-->[androidx.core:core:1.15.0] C:\Users\alexander\.gradle\caches\transforms-4\c9662211167aac95323a12d3fe1bfca5\transformed\core-1.15.0\AndroidManifest.xml:26:5-97
+23-->[androidx.core:core:1.15.0] C:\Users\alexander\.gradle\caches\transforms-4\c9662211167aac95323a12d3fe1bfca5\transformed\core-1.15.0\AndroidManifest.xml:26:22-94
+24
+25    <application
+25-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:12:5-53:19
+26        android:name="com.copilot.stealth.StealthApplication"
+26-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:13:9-43
+27        android:allowBackup="true"
+27-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:14:9-35
+28        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+28-->[androidx.core:core:1.15.0] C:\Users\alexander\.gradle\caches\transforms-4\c9662211167aac95323a12d3fe1bfca5\transformed\core-1.15.0\AndroidManifest.xml:28:18-86
+29        android:debuggable="true"
+30        android:extractNativeLibs="false"
+31        android:icon="@drawable/ic_launcher_foreground"
+31-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:15:9-56
+32        android:label="@string/app_name"
+32-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:16:9-41
+33        android:supportsRtl="true"
+33-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:17:9-35
+34        android:theme="@style/Theme.StealthVoiceCopilot" >
+34-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:18:9-57
+35        <activity
+35-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:20:9-31:20
+36            android:name="com.copilot.stealth.ui.StealthActivity"
+36-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:21:13-47
+37            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+37-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:25:13-87
+38            android:exported="true"
+38-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:22:13-36
+39            android:showWhenLocked="true"
+39-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:23:13-42
+40            android:theme="@style/Theme.StealthVoiceCopilot"
+40-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:26:13-61
+41            android:turnScreenOn="false" >
+41-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:24:13-41
+42            <intent-filter>
+42-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:27:13-30:29
+43                <action android:name="android.intent.action.MAIN" />
+43-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:28:17-69
+43-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:28:25-66
+44
+45                <category android:name="android.intent.category.LAUNCHER" />
+45-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:29:17-77
+45-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:29:27-74
+46            </intent-filter>
+47        </activity>
+48
+49        <service
+49-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:33:9-36:58
+50            android:name="com.copilot.stealth.service.CopilotForegroundService"
+50-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:34:13-61
+51            android:exported="false"
+51-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:35:13-37
+52            android:foregroundServiceType="microphone" />
+52-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:36:13-55
+53        <service
+53-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:38:9-40:40
+54            android:name="com.copilot.stealth.service.StealthOverlayService"
+54-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:39:13-58
+55            android:exported="false" />
+55-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:40:13-37
+56        <service
+56-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:42:9-51:19
+57            android:name="com.copilot.stealth.service.CopilotTileService"
+57-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:43:13-55
+58            android:exported="true"
+58-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:44:13-36
+59            android:icon="@drawable/ic_tile_copilot"
+59-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:46:13-53
+60            android:label="@string/tile_label"
+60-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:45:13-47
+61            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE" >
+61-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:47:13-77
+62            <intent-filter>
+62-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:48:13-50:29
+63                <action android:name="android.service.quicksettings.action.QS_TILE" />
+63-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:49:17-87
+63-->B:\workgit\stealth-voice-copilot\app\src\main\AndroidManifest.xml:49:25-84
+64            </intent-filter>
+65        </service>
+66
+67        <activity
+67-->[androidx.compose.ui:ui-tooling-android:1.7.0] C:\Users\alexander\.gradle\caches\transforms-4\23cb701c0b505cb5888aa613b308c5ed\transformed\ui-tooling-release\AndroidManifest.xml:23:9-25:39
+68            android:name="androidx.compose.ui.tooling.PreviewActivity"
+68-->[androidx.compose.ui:ui-tooling-android:1.7.0] C:\Users\alexander\.gradle\caches\transforms-4\23cb701c0b505cb5888aa613b308c5ed\transformed\ui-tooling-release\AndroidManifest.xml:24:13-71
+69            android:exported="true" />
+69-->[androidx.compose.ui:ui-tooling-android:1.7.0] C:\Users\alexander\.gradle\caches\transforms-4\23cb701c0b505cb5888aa613b308c5ed\transformed\ui-tooling-release\AndroidManifest.xml:25:13-36
+70        <activity
+70-->[androidx.compose.ui:ui-test-manifest:1.7.0] C:\Users\alexander\.gradle\caches\transforms-4\41bcf6cc0ae470f71896e1d1d71d9e12\transformed\ui-test-manifest-1.7.0\AndroidManifest.xml:23:9-25:39
+71            android:name="androidx.activity.ComponentActivity"
+71-->[androidx.compose.ui:ui-test-manifest:1.7.0] C:\Users\alexander\.gradle\caches\transforms-4\41bcf6cc0ae470f71896e1d1d71d9e12\transformed\ui-test-manifest-1.7.0\AndroidManifest.xml:24:13-63
+72            android:exported="true" />
+72-->[androidx.compose.ui:ui-test-manifest:1.7.0] C:\Users\alexander\.gradle\caches\transforms-4\41bcf6cc0ae470f71896e1d1d71d9e12\transformed\ui-test-manifest-1.7.0\AndroidManifest.xml:25:13-36
+73
+74        <provider
+74-->[androidx.emoji2:emoji2:1.3.0] C:\Users\alexander\.gradle\caches\transforms-4\947ea6db5d82102c599a692c0aead60b\transformed\emoji2-1.3.0\AndroidManifest.xml:24:9-32:20
+75            android:name="androidx.startup.InitializationProvider"
+75-->[androidx.emoji2:emoji2:1.3.0] C:\Users\alexander\.gradle\caches\transforms-4\947ea6db5d82102c599a692c0aead60b\transformed\emoji2-1.3.0\AndroidManifest.xml:25:13-67
+76            android:authorities="com.copilot.stealth.debug.androidx-startup"
+76-->[androidx.emoji2:emoji2:1.3.0] C:\Users\alexander\.gradle\caches\transforms-4\947ea6db5d82102c599a692c0aead60b\transformed\emoji2-1.3.0\AndroidManifest.xml:26:13-68
+77            android:exported="false" >
+77-->[androidx.emoji2:emoji2:1.3.0] C:\Users\alexander\.gradle\caches\transforms-4\947ea6db5d82102c599a692c0aead60b\transformed\emoji2-1.3.0\AndroidManifest.xml:27:13-37
+78            <meta-data
+78-->[androidx.emoji2:emoji2:1.3.0] C:\Users\alexander\.gradle\caches\transforms-4\947ea6db5d82102c599a692c0aead60b\transformed\emoji2-1.3.0\AndroidManifest.xml:29:13-31:52
+79                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+79-->[androidx.emoji2:emoji2:1.3.0] C:\Users\alexander\.gradle\caches\transforms-4\947ea6db5d82102c599a692c0aead60b\transformed\emoji2-1.3.0\AndroidManifest.xml:30:17-75
+80                android:value="androidx.startup" />
+80-->[androidx.emoji2:emoji2:1.3.0] C:\Users\alexander\.gradle\caches\transforms-4\947ea6db5d82102c599a692c0aead60b\transformed\emoji2-1.3.0\AndroidManifest.xml:31:17-49
+81            <meta-data
+81-->[androidx.lifecycle:lifecycle-process:2.8.7] C:\Users\alexander\.gradle\caches\transforms-4\4f3c195d1e0ee1fe19d7436860c46719\transformed\lifecycle-process-2.8.7\AndroidManifest.xml:29:13-31:52
+82                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+82-->[androidx.lifecycle:lifecycle-process:2.8.7] C:\Users\alexander\.gradle\caches\transforms-4\4f3c195d1e0ee1fe19d7436860c46719\transformed\lifecycle-process-2.8.7\AndroidManifest.xml:30:17-78
+83                android:value="androidx.startup" />
+83-->[androidx.lifecycle:lifecycle-process:2.8.7] C:\Users\alexander\.gradle\caches\transforms-4\4f3c195d1e0ee1fe19d7436860c46719\transformed\lifecycle-process-2.8.7\AndroidManifest.xml:31:17-49
+84            <meta-data
+84-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\alexander\.gradle\caches\transforms-4\2571228c770b60b383111e7fcd1ecae7\transformed\profileinstaller-1.4.0\AndroidManifest.xml:29:13-31:52
+85                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+85-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\alexander\.gradle\caches\transforms-4\2571228c770b60b383111e7fcd1ecae7\transformed\profileinstaller-1.4.0\AndroidManifest.xml:30:17-85
+86                android:value="androidx.startup" />
+86-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\alexander\.gradle\caches\transforms-4\2571228c770b60b383111e7fcd1ecae7\transformed\profileinstaller-1.4.0\AndroidManifest.xml:31:17-49
+87        </provider>
+88
+89        <receiver
+89-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\alexander\.gradle\caches\transforms-4\2571228c770b60b383111e7fcd1ecae7\transformed\profileinstaller-1.4.0\AndroidManifest.xml:34:9-52:20
+90            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+90-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\alexander\.gradle\caches\transforms-4\2571228c770b60b383111e7fcd1ecae7\transformed\profileinstaller-1.4.0\AndroidManifest.xml:35:13-76
+91            android:directBootAware="false"
+91-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\alexander\.gradle\caches\transforms-4\2571228c770b60b383111e7fcd1ecae7\transformed\profileinstaller-1.4.0\AndroidManifest.xml:36:13-44
+92            android:enabled="true"
+92-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\alexander\.gradle\caches\transforms-4\2571228c770b60b383111e7fcd1ecae7\transformed\profileinstaller-1.4.0\AndroidManifest.xml:37:13-35
+93            android:exported="true"
+93-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\alexander\.gradle\caches\transforms-4\2571228c770b60b383111e7fcd1ecae7\transformed\profileinstaller-1.4.0\AndroidManifest.xml:38:13-36
+94            android:permission="android.permission.DUMP" >
+94-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\alexander\.gradle\caches\transforms-4\2571228c770b60b383111e7fcd1ecae7\transformed\profileinstaller-1.4.0\AndroidManifest.xml:39:13-57
+95            <intent-filter>
+95-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\alexander\.gradle\caches\transforms-4\2571228c770b60b383111e7fcd1ecae7\transformed\profileinstaller-1.4.0\AndroidManifest.xml:40:13-42:29
+96                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+96-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\alexander\.gradle\caches\transforms-4\2571228c770b60b383111e7fcd1ecae7\transformed\profileinstaller-1.4.0\AndroidManifest.xml:41:17-91
+96-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\alexander\.gradle\caches\transforms-4\2571228c770b60b383111e7fcd1ecae7\transformed\profileinstaller-1.4.0\AndroidManifest.xml:41:25-88
+97            </intent-filter>
+98            <intent-filter>
+98-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\alexander\.gradle\caches\transforms-4\2571228c770b60b383111e7fcd1ecae7\transformed\profileinstaller-1.4.0\AndroidManifest.xml:43:13-45:29
+99                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+99-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\alexander\.gradle\caches\transforms-4\2571228c770b60b383111e7fcd1ecae7\transformed\profileinstaller-1.4.0\AndroidManifest.xml:44:17-85
+99-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\alexander\.gradle\caches\transforms-4\2571228c770b60b383111e7fcd1ecae7\transformed\profileinstaller-1.4.0\AndroidManifest.xml:44:25-82
+100            </intent-filter>
+101            <intent-filter>
+101-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\alexander\.gradle\caches\transforms-4\2571228c770b60b383111e7fcd1ecae7\transformed\profileinstaller-1.4.0\AndroidManifest.xml:46:13-48:29
+102                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+102-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\alexander\.gradle\caches\transforms-4\2571228c770b60b383111e7fcd1ecae7\transformed\profileinstaller-1.4.0\AndroidManifest.xml:47:17-88
+102-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\alexander\.gradle\caches\transforms-4\2571228c770b60b383111e7fcd1ecae7\transformed\profileinstaller-1.4.0\AndroidManifest.xml:47:25-85
+103            </intent-filter>
+104            <intent-filter>
+104-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\alexander\.gradle\caches\transforms-4\2571228c770b60b383111e7fcd1ecae7\transformed\profileinstaller-1.4.0\AndroidManifest.xml:49:13-51:29
+105                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+105-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\alexander\.gradle\caches\transforms-4\2571228c770b60b383111e7fcd1ecae7\transformed\profileinstaller-1.4.0\AndroidManifest.xml:50:17-95
+105-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\alexander\.gradle\caches\transforms-4\2571228c770b60b383111e7fcd1ecae7\transformed\profileinstaller-1.4.0\AndroidManifest.xml:50:25-92
+106            </intent-filter>
+107        </receiver>
+108    </application>
+109
+110</manifest>
