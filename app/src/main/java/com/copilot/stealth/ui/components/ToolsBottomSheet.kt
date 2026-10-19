@@ -174,13 +174,18 @@ fun ToolsBottomSheet(
                 )
 
                 val engineLabel = when (uiState.activeEngineType) {
-                    EngineType.HYBRID -> "ENGINE: HYBRID"
+                    EngineType.HYBRID -> "ENGINE: HYBRID (AI)"
                     EngineType.DETERMINISTIC_EXPERT -> "ENGINE: EXPERT"
                     EngineType.LOCAL_NEURAL -> "ENGINE: NEURAL"
                 }
+                val engineSub = when (uiState.activeEngineType) {
+                    EngineType.HYBRID -> "Ultra-fast AI (Sub-250ms)"
+                    EngineType.DETERMINISTIC_EXPERT -> "Local Deterministic"
+                    EngineType.LOCAL_NEURAL -> "On-Device Neural"
+                }
                 ToolMenuButton(
                     title = engineLabel,
-                    subtitle = "Sub-50ms inference",
+                    subtitle = engineSub,
                     modifier = Modifier.weight(1f),
                     onClick = onCycleEngine
                 )

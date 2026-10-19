@@ -27,8 +27,33 @@ class CarrierProfileRepository(private val context: Context) {
         prefs.edit().putString(KEY_PROFILE, serialized).apply()
     }
 
+    fun getGroqApiKey(): String {
+        val stored = prefs.getString(KEY_GROQ_KEY, null)
+        if (!stored.isNullOrBlank()) {
+            return stored
+        }
+        return com.copilot.stealth.BuildConfig.DEFAULT_GROQ_API_KEY
+    }
+
+    fun saveGroqApiKey(key: String) {
+        prefs.edit().putString(KEY_GROQ_KEY, key.trim()).apply()
+    }
+
+    fun getCloudModel(): String {
+        return prefs.getString(KEY_CLOUD_MODEL, DEFAULT_CLOUD_MODEL) ?: DEFAULT_CLOUD_MODEL
+    }
+
+    fun saveCloudModel(model: String) {
+        prefs.edit().putString(KEY_CLOUD_MODEL, model.trim()).apply()
+    }
+
     companion object {
         private const val PREFS_NAME = "stealth_carrier_prefs"
         private const val KEY_PROFILE = "carrier_profile_data"
+        private const val KEY_GROQ_KEY = "groq_api_key"
+        private const val KEY_CLOUD_MODEL = "cloud_model_name"
+
+        const val DEFAULT_GROQ_KEY = ""
+        const val DEFAULT_CLOUD_MODEL = "openai/gpt-oss-20b"
     }
 }

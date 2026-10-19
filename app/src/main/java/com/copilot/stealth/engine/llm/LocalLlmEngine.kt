@@ -10,8 +10,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * Hybrid inference coordinator managing local neural model execution via MediaPipe Tasks GenAI
- * and instant sub-5ms deterministic freight knowledge evaluation.
+ * Hybrid inference coordinator managing ultra-fast cloud LLMs (Groq LPU / OpenAI),
+ * on-device quantized neural execution via MediaPipe Tasks GenAI, and instant deterministic fallback.
  */
 class LocalLlmEngine(
     private val context: Context,
@@ -23,6 +23,10 @@ class LocalLlmEngine(
 
     private val modelManager = LocalModelManager(context)
     private val neuralRunner = LocalNeuralRunner(context)
+    private val cloudClient = CloudLlmClient(
+        apiKey = carrierProfileRepository.getGroqApiKey(),
+        modelName = carrierProfileRepository.getCloudModel()
+    )
     private var activeEngineType = EngineType.HYBRID
 
     val isNeuralModelReady: Boolean
@@ -48,6 +52,17 @@ class LocalLlmEngine(
 
     fun reloadCarrierProfile() {
         knowledgeEngine = FreightKnowledgeEngine(carrierProfile = carrierProfileRepository.getProfile())
+        cloudClient.updateConfig(
+            newApiKey = carrierProfileRepository.getGroqApiKey(),
+            newModelName = carrierProfileRepository.getCloudModel()
+        )
+    }
+
+    fun reloadCloudConfig() {
+        cloudClient.updateConfig(
+            newApiKey = carrierProfileRepository.getGroqApiKey(),
+            newModelName = carrierProfileRepository.getCloudModel()
+        )
     }
 
     suspend fun generateResponse(
@@ -58,6 +73,19 @@ class LocalLlmEngine(
     ): CopilotTurn = withContext(Dispatchers.Default) {
         val startTime = System.currentTimeMillis()
 
+        // 1. In HYBRID mode: Attempt ultra-fast Cloud AI first (Groq LPU: sub-250ms latency for ANY question)
+        if (forcedEngineType == EngineType.HYBRID) {
+            try {
+                val cloudResult = cloudClient.generateResponse(question, recentTurns, isRomanianEnabled, startTime)
+                if (cloudResult != null) {
+                    return@withContext cloudResult
+                }
+            } catch (_: Exception) {
+                // Graceful fallback to on-device neural or deterministic engine
+            }
+        }
+
+        // 2. On-device local neural model if loaded or requested
         val shouldRunNeural = when (forcedEngineType) {
             EngineType.LOCAL_NEURAL -> neuralRunner.isModelLoaded
             EngineType.DETERMINISTIC_EXPERT -> false
@@ -72,7 +100,7 @@ class LocalLlmEngine(
             }
         }
 
-        // Real dynamic deterministic evaluation based on actual question and carrier profile
+        // 3. Instant local fallback engine (covers fast-path small talk and freight specifics)
         knowledgeEngine.createTurn(question, isRomanianEnabled, startTime)
     }
 
