@@ -124,34 +124,57 @@ class FreightKnowledgeEngine(
     ): Float {
         var score = 0.0f
 
-        // Keyword trigger presence
+        // Keyword trigger presence with fuzzy distance for heavy accents
         for (keyword in scenario.triggerKeywords) {
             val lowerKeyword = keyword.lowercase()
             if (rawQuery.contains(lowerKeyword)) {
                 score += 0.40f
             } else {
                 val kwParts = lowerKeyword.split(" ")
-                val matchedParts = kwParts.count { queryTokens.contains(it) }
+                val matchedParts = kwParts.count { kw ->
+                    queryTokens.any { q ->
+                        q == kw || (kw.length >= 4 && q.length >= 4 && levenshteinDistance(q, kw) <= 2)
+                    }
+                }
                 if (matchedParts > 0) {
-                    score += 0.20f * (matchedParts.toFloat() / kwParts.size)
+                    score += 0.25f * (matchedParts.toFloat() / kwParts.size)
                 }
             }
         }
 
-        // Direct overlap with sample questions
+        // Direct overlap with sample questions with fuzzy token tolerance
         for (sample in scenario.sampleQuestions) {
             val sampleTokens = tokenize(sample.lowercase())
-            val intersection = queryTokens.intersect(sampleTokens).size
+            val matchedCount = sampleTokens.count { s ->
+                queryTokens.any { q -> q == s || (s.length >= 5 && q.length >= 5 && levenshteinDistance(q, s) <= 1) }
+            }
             val union = queryTokens.union(sampleTokens).size
             if (union > 0) {
-                val jaccard = intersection.toFloat() / union.toFloat()
-                if (jaccard > 0.15f) {
+                val jaccard = matchedCount.toFloat() / union.toFloat()
+                if (jaccard > 0.12f) {
                     score += jaccard * 0.50f
                 }
             }
         }
 
         return score
+    }
+
+    private fun levenshteinDistance(s1: String, s2: String): Int {
+        val dp = Array(s1.length + 1) { IntArray(s2.length + 1) }
+        for (i in 0..s1.length) dp[i][0] = i
+        for (j in 0..s2.length) dp[0][j] = j
+        for (i in 1..s1.length) {
+            for (j in 1..s2.length) {
+                val cost = if (s1[i - 1] == s2[j - 1]) 0 else 1
+                dp[i][j] = minOf(
+                    dp[i - 1][j] + 1,
+                    dp[i][j - 1] + 1,
+                    dp[i - 1][j - 1] + cost
+                )
+            }
+        }
+        return dp[s1.length][s2.length]
     }
 
     private fun tokenize(text: String): Set<String> {

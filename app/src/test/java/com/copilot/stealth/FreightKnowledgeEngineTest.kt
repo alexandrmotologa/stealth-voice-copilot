@@ -1,6 +1,7 @@
 package com.copilot.stealth
 
 import com.copilot.stealth.data.repository.FreightKnowledgeEngine
+import com.copilot.stealth.engine.stt.FreightLexiconNormalizer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -148,6 +149,28 @@ class FreightKnowledgeEngineTest {
         val fleetResult = customEngine.evaluate(fleetQuery, isRomanianEnabled = true)
         assertEquals("Fleet & Equipment Specifications", fleetResult.category)
         assertTrue(fleetResult.answerEn.contains("42 late-model power units"))
+    }
+
+    @Test
+    fun testBrokenEnglishAndAccentedMatching() {
+        // Indian broker accent / broken syntax: "detenshun", "two hour"
+        val brokenDetentionQuery = "Hey buddy, driver is waiting past two hour at shipper what is your detenshun charge?"
+        val normalizedDetention = FreightLexiconNormalizer.normalize(brokenDetentionQuery)
+        val detentionResult = engine.evaluate(normalizedDetention, isRomanianEnabled = true)
+        assertEquals("Detention Policy", detentionResult.category)
+        assertTrue(detentionResult.confidence >= 0.5f)
+
+        // Broken English syntax: "cancel load tony fee"
+        val brokenTonuQuery = "Brokerman cancel load driver already reached dock what about tony fee?"
+        val normalizedTonu = FreightLexiconNormalizer.normalize(brokenTonuQuery)
+        val tonuResult = engine.evaluate(normalizedTonu, isRomanianEnabled = true)
+        assertEquals("TONU (Truck Ordered Not Used)", tonuResult.category)
+
+        // Broken English: "lumba unloading cash comchek"
+        val brokenLumperQuery = "Facility need 300 cash for lumba unloading you give comchek?"
+        val normalizedLumper = FreightLexiconNormalizer.normalize(brokenLumperQuery)
+        val lumperResult = engine.evaluate(normalizedLumper, isRomanianEnabled = true)
+        assertEquals("Lumper Reimbursement", lumperResult.category)
     }
 }
 
