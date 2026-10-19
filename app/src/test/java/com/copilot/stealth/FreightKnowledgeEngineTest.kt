@@ -135,12 +135,32 @@ class FreightKnowledgeEngineTest {
     }
 
     @Test
+    fun testJobOpinionAndSelfIntroUniversalMatching() {
+        // "how you think about your job"
+        val jobRes = engine.evaluate("how you think about your job", isRomanianEnabled = true)
+        assertEquals("Career & Work Outlook", jobRes.category)
+        assertTrue(jobRes.answerEn.contains("I really enjoy my work"))
+        assertEquals("Ce parere ai despre munca ta?", jobRes.questionRo)
+
+        // "say something about you"
+        val introRes = engine.evaluate("say something about you", isRomanianEnabled = true)
+        assertEquals("Personal Introduction", introRes.category)
+        assertTrue(introRes.answerEn.contains("dedicated professional"))
+        assertEquals("Spune ceva despre tine / Cine esti?", introRes.questionRo)
+
+        // "tell me about yourself"
+        val aboutRes = engine.evaluate("tell me about yourself", isRomanianEnabled = true)
+        assertEquals("Personal Introduction", aboutRes.category)
+        assertTrue(aboutRes.answerEn.contains("dedicated professional"))
+    }
+
+    @Test
     fun testGenericFallbackForUnmatchedQuery() {
         val query = "xylophone banana spaceship"
         val result = engine.evaluate(query, isRomanianEnabled = true)
 
-        assertEquals("General Inquiry", result.category)
-        assertTrue(result.answerEn.contains("repeat that"))
+        assertEquals("Conversational Inquiry", result.category)
+        assertTrue(result.answerEn.contains("elaborate on that"))
     }
 
     @Test

@@ -63,16 +63,16 @@ class FreightKnowledgeEngine(
                 questionRo = "Buna, ce mai faci? / Salutare, cum merg lucrurile?"
             ),
             FreightScenario(
-                category = "Dispatcher Background & Introduction",
-                triggerKeywords = listOf("tell me about yourself", "your background", "experience as dispatcher", "walk me through your resume", "who are you", "how long have you been dispatching"),
+                category = "Specialized Freight Experience",
+                triggerKeywords = listOf("freight dispatching background", "freight experience", "experience as dispatcher", "how long have you been dispatching freight", "dispatch experience"),
                 sampleQuestions = listOf(
-                    "Can you tell me about yourself?",
                     "Walk me through your freight dispatching background.",
-                    "How long have you been dispatching freight?"
+                    "How long have you been dispatching freight?",
+                    "What is your direct experience as a freight dispatcher?"
                 ),
                 answerEn = "I have solid freight dispatching experience managing dry van and reefer loads on DAT and Truckstop, focusing on high RPM and ELD compliance.",
                 answerRo = "Am experienta solida in dispatching pentru dry van si reefer pe DAT/Truckstop, negociere tarife si conformitate ELD.",
-                questionRo = "Povesteste-mi despre tine si experienta ta in dispatch."
+                questionRo = "Povesteste-mi despre experienta ta specifica in dispatch de marfa."
             )
         )
         carrierScenarios + glossary
@@ -89,7 +89,7 @@ class FreightKnowledgeEngine(
     fun evaluate(query: String, isRomanianEnabled: Boolean): MatchResult {
         val cleanQuery = query.trim().lowercase()
 
-        // Fast-path for conversational greetings, audio checks, and small talk
+        // Fast-path for conversational greetings, personal intro, work outlook, and universal Q&A
         val fastMatch = matchConversationalFastPath(cleanQuery, isRomanianEnabled)
         if (fastMatch != null) {
             return fastMatch
@@ -99,11 +99,11 @@ class FreightKnowledgeEngine(
 
         if (queryTokens.isEmpty()) {
             return MatchResult(
-                category = "General Inquiry",
+                category = "Conversational Inquiry",
                 confidence = 0.6f,
-                answerEn = "Could you please repeat that? I am ready to discuss our lanes, rates, and dispatch operations.",
-                answerRo = if (isRomanianEnabled) "Puteti repeta? Sunt gata sa discutam despre rute, tarife si disponibilitate." else null,
-                questionRo = if (isRomanianEnabled) "Puteti clarifica intrebarea?" else null
+                answerEn = "Could you please elaborate on that? I would be glad to share my perspective.",
+                answerRo = if (isRomanianEnabled) "Puteti detalia putin? As fi bucuros sa va impartasesc perspectiva mea." else null,
+                questionRo = if (isRomanianEnabled) "Puteti detalia intrebarea?" else null
             )
         }
 
@@ -118,13 +118,13 @@ class FreightKnowledgeEngine(
             }
         }
 
-        if (bestScenario == null || highestScore < 0.15f) {
+        if (bestScenario == null || highestScore < 0.20f) {
             return MatchResult(
-                category = "General Inquiry",
+                category = "Conversational Inquiry",
                 confidence = 0.50f,
-                answerEn = "Could you please repeat that? I am ready to discuss our lanes, rates, and dispatch operations.",
-                answerRo = if (isRomanianEnabled) "Puteti repeta? Sunt gata sa discutam despre rute, tarife si disponibilitate." else null,
-                questionRo = if (isRomanianEnabled) "Puteti clarifica intrebarea?" else null
+                answerEn = "Could you please elaborate on that? I would be glad to share my perspective.",
+                answerRo = if (isRomanianEnabled) "Puteti detalia putin? As fi bucuros sa va impartasesc perspectiva mea." else null,
+                questionRo = if (isRomanianEnabled) "Puteti detalia intrebarea?" else null
             )
         }
 
@@ -184,8 +184,8 @@ class FreightKnowledgeEngine(
                         q == kw || (kw.length >= 4 && q.length >= 4 && levenshteinDistance(q, kw) <= 2)
                     }
                 }
-                if (matchedParts > 0) {
-                    score += 0.25f * (matchedParts.toFloat() / kwParts.size)
+                if (matchedParts > 0 && (matchedParts.toFloat() / kwParts.size) >= 0.70f) {
+                    score += 0.35f * (matchedParts.toFloat() / kwParts.size)
                 }
             }
         }
@@ -226,14 +226,56 @@ class FreightKnowledgeEngine(
     }
 
     private fun matchConversationalFastPath(cleanQuery: String, isRomanianEnabled: Boolean): MatchResult? {
-        // Direct checks for how are you / greetings
-        val isHowAreYou = cleanQuery.contains("how are you") ||
+        // 1. Job / Career / Work opinions & thoughts
+        val isJobOpinion = cleanQuery.contains("think about your job") ||
+                cleanQuery.contains("think about your work") ||
+                cleanQuery.contains("about your job") ||
+                cleanQuery.contains("about your work") ||
+                cleanQuery.contains("like your job") ||
+                cleanQuery.contains("like your work") ||
+                cleanQuery.contains("how is your job") ||
+                cleanQuery.contains("how do you feel about your job") ||
+                (cleanQuery.contains("job") && (cleanQuery.contains("think") || cleanQuery.contains("feel") || cleanQuery.contains("opinion")))
+
+        if (isJobOpinion) {
+            return MatchResult(
+                category = "Career & Work Outlook",
+                confidence = 0.98f,
+                answerEn = "I really enjoy my work because it keeps me engaged, challenges me to solve practical problems, and allows me to deliver tangible value every day.",
+                answerRo = if (isRomanianEnabled) "Imi place foarte mult munca mea fiindca este dinamica, ma provoaca sa rezolv probleme practice si imi ofera satisfactie zilnic." else null,
+                questionRo = if (isRomanianEnabled) "Ce parere ai despre munca ta?" else null
+            )
+        }
+
+        // 2. Personal introduction / Say something about you / Tell me about yourself
+        val isAboutYou = cleanQuery.contains("about you") ||
+                cleanQuery.contains("about yourself") ||
+                cleanQuery.contains("say something about you") ||
+                cleanQuery.contains("tell me about you") ||
+                cleanQuery.contains("who are you") ||
+                cleanQuery.contains("introduce yourself") ||
+                cleanQuery.contains("describe yourself") ||
+                cleanQuery == "about you" ||
+                cleanQuery == "who are you"
+
+        if (isAboutYou) {
+            return MatchResult(
+                category = "Personal Introduction",
+                confidence = 0.98f,
+                answerEn = "I am a dedicated professional with strong communication and problem-solving skills, always focused on delivering reliable results and collaborating effectively.",
+                answerRo = if (isRomanianEnabled) "Sunt o persoana dedicata, cu abilitati bune de comunicare si rezolvare a problemelor, axata pe rezultate de calitate si colaborare." else null,
+                questionRo = if (isRomanianEnabled) "Spune ceva despre tine / Cine esti?" else null
+            )
+        }
+
+        // 3. Greetings & How are you (Ensure it doesn't collide with "job" or "think")
+        val isHowAreYou = (cleanQuery.contains("how are you") ||
                 cleanQuery.contains("how are you doing") ||
                 cleanQuery.contains("how is it going") ||
                 cleanQuery.contains("hows it going") ||
                 cleanQuery.contains("how are things") ||
                 cleanQuery == "how are you" ||
-                cleanQuery == "how are u"
+                cleanQuery == "how are u") && !cleanQuery.contains("job") && !cleanQuery.contains("work")
 
         if (isHowAreYou) {
             return MatchResult(
@@ -245,7 +287,7 @@ class FreightKnowledgeEngine(
             )
         }
 
-        // Pure greetings (Hi, Hello, Hey, Good morning, etc.)
+        // 4. Pure greetings (Hi, Hello, Hey, Good morning, etc.)
         val isGreeting = cleanQuery == "hi" ||
                 cleanQuery == "hello" ||
                 cleanQuery == "hey" ||
@@ -264,7 +306,87 @@ class FreightKnowledgeEngine(
             )
         }
 
-        // Audio mic checks: can you hear me
+        // 5. Strengths & Skills
+        val isStrengths = cleanQuery.contains("strength") ||
+                cleanQuery.contains("good at") ||
+                cleanQuery.contains("what do you do best") ||
+                cleanQuery.contains("your skills")
+
+        if (isStrengths) {
+            return MatchResult(
+                category = "Strengths & Skills",
+                confidence = 0.97f,
+                answerEn = "My greatest strengths are adaptability, quick problem-solving, attention to detail, and maintaining composure in fast-paced situations.",
+                answerRo = if (isRomanianEnabled) "Punctele mele forte sunt adaptabilitatea, rezolvarea rapida a problemelor, atentia la detalii si calmul in situatii presante." else null,
+                questionRo = if (isRomanianEnabled) "Care sunt punctele tale forte?" else null
+            )
+        }
+
+        // 6. Why should we hire you / Why choose you
+        val isWhyHire = cleanQuery.contains("why should we hire you") ||
+                cleanQuery.contains("why choose you") ||
+                cleanQuery.contains("why hire you") ||
+                cleanQuery.contains("why work with you")
+
+        if (isWhyHire) {
+            return MatchResult(
+                category = "Value Proposition",
+                confidence = 0.97f,
+                answerEn = "I bring a strong work ethic, rapid learning ability, and a proactive attitude that ensures tasks are handled accurately and on time.",
+                answerRo = if (isRomanianEnabled) "Aduc o etica profesionala solida, capacitate rapida de invatare si o atitudine proactiva ce asigura livrarea la timp." else null,
+                questionRo = if (isRomanianEnabled) "De ce ar trebui sa te alegem?" else null
+            )
+        }
+
+        // 7. Handling stress & pressure
+        val isStress = cleanQuery.contains("handle stress") ||
+                cleanQuery.contains("handle pressure") ||
+                cleanQuery.contains("under pressure") ||
+                cleanQuery.contains("difficult situation")
+
+        if (isStress) {
+            return MatchResult(
+                category = "Stress Management",
+                confidence = 0.97f,
+                answerEn = "I stay calm by prioritizing urgent tasks, breaking complex issues into clear steps, and keeping transparent communication with my team.",
+                answerRo = if (isRomanianEnabled) "Imi pastrez calmul prioritizand urgentele, impartind problemele in pasi clari si comunicand deschis cu echipa." else null,
+                questionRo = if (isRomanianEnabled) "Cum gestionezi stresul si presiunea?" else null
+            )
+        }
+
+        // 8. Future goals / 5 years
+        val isGoals = cleanQuery.contains("5 years") ||
+                cleanQuery.contains("five years") ||
+                cleanQuery.contains("future goals") ||
+                cleanQuery.contains("where do you see yourself")
+
+        if (isGoals) {
+            return MatchResult(
+                category = "Career Goals",
+                confidence = 0.97f,
+                answerEn = "My goal is to continually master my craft, take on greater responsibilities, and contribute meaningfully to long-term team growth.",
+                answerRo = if (isRomanianEnabled) "Scopul meu este sa ma perfectionez continuu, sa preiau mai multe responsabilitati si sa contribui la cresterea echipei." else null,
+                questionRo = if (isRomanianEnabled) "Unde te vezi in 5 ani?" else null
+            )
+        }
+
+        // 9. Free time & Hobbies
+        val isHobbies = cleanQuery.contains("free time") ||
+                cleanQuery.contains("hobbies") ||
+                cleanQuery.contains("outside of work") ||
+                cleanQuery.contains("what do you do for fun")
+
+        if (isHobbies) {
+            return MatchResult(
+                category = "Interests & Lifestyle",
+                confidence = 0.97f,
+                answerEn = "In my free time, I enjoy staying active, reading, learning new technologies, and spending quality time with family.",
+                answerRo = if (isRomanianEnabled) "In timpul liber imi place sa fac miscare, sa citesc, sa descopar tehnologii noi si sa petrec timp cu familia." else null,
+                questionRo = if (isRomanianEnabled) "Ce faci in timpul liber?" else null
+            )
+        }
+
+        // 10. Audio mic checks: can you hear me
         val isAudioCheck = cleanQuery.contains("can you hear me") ||
                 cleanQuery.contains("hear me ok") ||
                 cleanQuery.contains("are you there") ||
@@ -280,7 +402,7 @@ class FreightKnowledgeEngine(
             )
         }
 
-        // Polite thanks
+        // 11. Polite thanks
         val isThanks = cleanQuery == "thank you" ||
                 cleanQuery == "thanks" ||
                 cleanQuery.startsWith("thank you") ||
@@ -317,10 +439,17 @@ class FreightKnowledgeEngine(
                 if (lower.contains("can you hear me")) return "Salut, ma auzi bine?"
                 return "Buna ziua / Salut"
             }
+            if (lower.contains("think about your job") || lower.contains("about your job") || lower.contains("about your work")) return "Ce parere ai despre munca ta?"
+            if (lower.contains("tell me about yourself") || lower.contains("about you") || lower.contains("say something about you") || lower.contains("who are you")) return "Spune ceva despre tine / Cine esti?"
             if (lower.contains("how are you")) return "Ce mai faci? / Cum merg lucrurile?"
+            if (lower.contains("strengths") || lower.contains("good at")) return "Care sunt punctele tale forte?"
+            if (lower.contains("why should we hire you") || lower.contains("why hire you")) return "De ce ar trebui sa te alegem?"
+            if (lower.contains("free time") || lower.contains("hobbies")) return "Ce faci in timpul liber?"
+            if (lower.contains("handle stress") || lower.contains("pressure")) return "Cum gestionezi stresul?"
+            if (lower.contains("5 years") || lower.contains("five years")) return "Unde te vezi in 5 ani?"
+            if (lower.contains("what do you do")) return "Cu ce te ocupi?"
             if (lower.contains("good morning")) return "Buna dimineata"
             if (lower.contains("good afternoon")) return "Buna ziua"
-            if (lower.contains("tell me about yourself")) return "Povesteste-mi despre tine si experienta ta."
             if (lower.contains("what is your mc") || lower.contains("mc number")) return "Care este numarul tau de MC si compania?"
             if (lower.contains("what equipment") || lower.contains("trucks")) return "Ce tip de camioane/echipament aveti in flota?"
             if (lower.contains("rate con") || lower.contains("rate confirmation")) return "Ce verifici pe o confirmare de tarif inainte de semnare?"
