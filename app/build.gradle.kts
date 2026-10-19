@@ -85,6 +85,9 @@ dependencies {
     // ONNX Runtime for Android (Silero VAD execution)
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.18.0")
 
+    // Google MediaPipe Tasks GenAI (Local On-Device LLM Inference)
+    implementation("com.google.mediapipe:tasks-genai:0.10.14")
+
     // Unit Testing
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")

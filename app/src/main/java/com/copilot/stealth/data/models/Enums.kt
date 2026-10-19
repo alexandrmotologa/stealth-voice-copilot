@@ -23,3 +23,14 @@ enum class DisplayThemeMode {
     NIGHT_VISION_RED,
     AMBER_DIFFUSE
 }
+
+enum class SttLanguageMode {
+    ENGLISH,
+    ROMANIAN,
+    BILINGUAL_AUTO
+}
+
+enum class WhisperPromptMode {
+    MUTED,
+    EARPIECE_WHISPER
+}

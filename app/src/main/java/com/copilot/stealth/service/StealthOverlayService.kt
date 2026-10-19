@@ -4,30 +4,32 @@ import android.annotation.SuppressLint
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
-import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.TextView
-import com.copilot.stealth.R
 
 /**
- * Floating system overlay service displaying a minimalist 1-line speech HUD
- * over conference applications (Zoom, Teams, Google Meet).
+ * Floating system overlay service displaying a minimalist, gesture-interactive HUD
+ * over conference applications (Zoom, Teams, Google Meet) with dynamic transparency.
  */
 class StealthOverlayService : Service() {
 
     private var windowManager: WindowManager? = null
     private var overlayView: View? = null
     private var hudTextView: TextView? = null
+    private var params: WindowManager.LayoutParams? = null
+    private var isMinimized = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    @SuppressLint("InflateParams", "ClickableViewAccessibility")
+    @SuppressLint("ClickableViewAccessibility")
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -39,8 +41,8 @@ class StealthOverlayService : Service() {
             WindowManager.LayoutParams.TYPE_PHONE
         }
 
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
+        val layoutParams = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             layoutFlag,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
@@ -49,35 +51,58 @@ class StealthOverlayService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            y = 120
+            y = 140
+        }
+        params = layoutParams
+
+        val backgroundDrawable = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 24f
+            setColor(Color.argb(210, 8, 8, 8)) // 82% true black
+            setStroke(2, Color.argb(100, 40, 40, 40))
         }
 
-        // Programmatic lightweight HUD layout
         val container = TextView(this).apply {
-            setBackgroundColor(0xCC000000.toInt())
-            setTextColor(0xFFD0D0D0.toInt())
-            textSize = 13.0f
-            setPadding(32, 16, 32, 16)
-            text = "Stealth HUD: Standby"
+            background = backgroundDrawable
+            setTextColor(Color.argb(240, 220, 220, 220))
+            textSize = 12.5f
+            setPadding(40, 20, 40, 20)
+            text = "Stealth HUD • Standby"
             gravity = Gravity.CENTER
+            maxWidth = 850
         }
 
         hudTextView = container
         overlayView = container
 
+        var initialX = 0
         var initialY = 0
+        var initialTouchX = 0f
         var initialTouchY = 0f
+        var lastClickTime = 0L
 
         container.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    initialY = params.y
+                    initialX = layoutParams.x
+                    initialY = layoutParams.y
+                    initialTouchX = event.rawX
                     initialTouchY = event.rawY
+
+                    val currentTime = System.currentTimeMillis()
+                    if (currentTime - lastClickTime < 350) {
+                        // Double tap: toggle micro-pill minimized state
+                        toggleMinimizedState(container, layoutParams)
+                        lastClickTime = 0L
+                    } else {
+                        lastClickTime = currentTime
+                    }
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    params.y = initialY + (event.rawY - initialTouchY).toInt()
-                    windowManager?.updateViewLayout(container, params)
+                    layoutParams.x = initialX + (event.rawX - initialTouchX).toInt()
+                    layoutParams.y = initialY - (event.rawY - initialTouchY).toInt()
+                    windowManager?.updateViewLayout(container, layoutParams)
                     true
                 }
                 else -> false
@@ -85,36 +110,68 @@ class StealthOverlayService : Service() {
         }
 
         try {
-            windowManager?.addView(overlayView, params)
+            windowManager?.addView(overlayView, layoutParams)
         } catch (_: Exception) {}
+    }
+
+    private fun toggleMinimizedState(view: TextView, layoutParams: WindowManager.LayoutParams) {
+        isMinimized = !isMinimized
+        if (isMinimized) {
+            view.text = "•"
+            view.setPadding(20, 10, 20, 10)
+        } else {
+            view.text = "Stealth HUD Active"
+            view.setPadding(40, 20, 40, 20)
+        }
+        windowManager?.updateViewLayout(view, layoutParams)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val updateText = intent?.getStringExtra(EXTRA_HUD_TEXT)
         if (!updateText.isNullOrBlank()) {
-            hudTextView?.text = updateText
+            if (!isMinimized) {
+                hudTextView?.text = updateText
+            }
         }
+
+        val alpha = intent?.getFloatExtra(EXTRA_ALPHA, -1f) ?: -1f
+        if (alpha > 0f) {
+            params?.alpha = alpha
+            params?.let { windowManager?.updateViewLayout(overlayView, it) }
+        }
+
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
-        if (overlayView != null) {
-            try {
-                windowManager?.removeView(overlayView)
-            } catch (_: Exception) {}
-            overlayView = null
-        }
+        try {
+            overlayView?.let { windowManager?.removeView(it) }
+        } catch (_: Exception) {}
+        overlayView = null
+        hudTextView = null
         super.onDestroy()
     }
 
     companion object {
         const val EXTRA_HUD_TEXT = "extra_hud_text"
+        const val EXTRA_ALPHA = "extra_hud_alpha"
 
         fun updateHudText(context: Context, text: String) {
             val intent = Intent(context, StealthOverlayService::class.java).apply {
                 putExtra(EXTRA_HUD_TEXT, text)
             }
-            context.startService(intent)
+            try {
+                context.startService(intent)
+            } catch (_: Exception) {}
+        }
+
+        fun updateHudAlpha(context: Context, alpha: Float) {
+            val intent = Intent(context, StealthOverlayService::class.java).apply {
+                putExtra(EXTRA_ALPHA, alpha)
+            }
+            try {
+                context.startService(intent)
+            } catch (_: Exception) {}
         }
     }
 }

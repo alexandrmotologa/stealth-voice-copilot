@@ -13,7 +13,11 @@ data class StealthUiState(
     val isProcessing: Boolean = false,
     val overlayMode: OverlayMode = OverlayMode.LOCKSCREEN,
     val themeMode: DisplayThemeMode = DisplayThemeMode.AMOLED_STANDARD,
+    val sttLanguageMode: SttLanguageMode = SttLanguageMode.ENGLISH,
+    val isWhisperEnabled: Boolean = false,
     val isCalculatorVisible: Boolean = false,
+    val isCarrierProfileOpen: Boolean = false,
+    val isMockSimulatorOpen: Boolean = false,
     val currentTurns: List<CopilotTurn> = emptyList(),
     val errorMessage: String? = null,
     val batterySaverMode: Boolean = false,
@@ -25,5 +29,6 @@ data class StealthUiState(
     val lastLatencyMs: Long = 0L,
     val lastDetentionResult: DetentionResult? = null,
     val lastRpmResult: RpmResult? = null,
-    val lastHosResult: HosReachResult? = null
+    val lastHosResult: HosReachResult? = null,
+    val carrierProfile: CarrierProfile = CarrierProfile()
 )

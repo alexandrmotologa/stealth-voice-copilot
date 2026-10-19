@@ -28,7 +28,7 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
 
     var onSpeechStatusChanged: ((isRecognizing: Boolean) -> Unit)? = null
 
-    fun startListening() {
+    fun startListening(languageMode: com.copilot.stealth.data.models.SttLanguageMode = com.copilot.stealth.data.models.SttLanguageMode.ENGLISH) {
         mainHandler.post {
             try {
                 if (speechRecognizer == null) {
@@ -42,9 +42,18 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
                     speechRecognizer?.setRecognitionListener(this)
                 }
 
+                val primaryLang = when (languageMode) {
+                    com.copilot.stealth.data.models.SttLanguageMode.ENGLISH -> "en-US"
+                    com.copilot.stealth.data.models.SttLanguageMode.ROMANIAN -> "ro-RO"
+                    com.copilot.stealth.data.models.SttLanguageMode.BILINGUAL_AUTO -> "en-US"
+                }
+
                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, primaryLang)
+                    if (languageMode == com.copilot.stealth.data.models.SttLanguageMode.BILINGUAL_AUTO && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        putExtra("android.speech.extra.ADDITIONAL_LANGUAGES", arrayOf("ro-RO", "en-US"))
+                    }
                     putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                     putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {

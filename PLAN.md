@@ -325,6 +325,14 @@ stealth-voice-copilot/
 * Task 8.6: Implement `SystemAudioCaptureHelper` supporting direct VoIP in-call audio recording via `AudioPlaybackCaptureConfiguration` and `VOICE_COMMUNICATION`.
 * Task 8.7: Implement `SessionExportManager` for AES-256-GCM encrypted transcript export and Volume Up double-click emergency panic wipe.
 
+### Phase 9: 2026 Benchmark Enhancements
+* Task 9.1: Implement Google MediaPipe Tasks GenAI on-device engine (`LocalNeuralRunner` and `LocalModelManager`) for local quantized model execution on Tensor G1.
+* Task 9.2: Implement native bilingual Speech-to-Text (`SttLanguageMode`: English, Romanian, Auto-bilingual) and expand phonetic normalizer with Romanian logistics terms.
+* Task 9.3: Implement covert whisper earpiece prompter (`DiscreetAudioPrompter`) directing audio exclusively to Bluetooth earbuds with zero loudspeaker leakage.
+* Task 9.4: Implement real-time carrier profile editor (`CarrierProfileSheet`) for instant candidate authority updates.
+* Task 9.5: Implement interactive mock interview simulator (`MockInterviewManager` and `MockInterviewSheet`) with candidate readiness scoring and instant feedback.
+* Task 9.6: Implement edge-to-edge window insets, spring micro-interactions, and gesture-controlled floating HUD.
+
 ## 8. Freight Logistics Knowledge Base Reference
 
 | Term | Context | Standard Response Pattern |

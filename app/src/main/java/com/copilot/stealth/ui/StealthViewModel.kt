@@ -4,19 +4,24 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.copilot.stealth.data.models.AudioInputSource
+import com.copilot.stealth.data.models.CarrierProfile
 import com.copilot.stealth.data.models.DisplayThemeMode
 import com.copilot.stealth.data.models.EngineType
 import com.copilot.stealth.data.models.OverlayMode
 import com.copilot.stealth.data.models.StealthUiIntent
 import com.copilot.stealth.data.models.StealthUiState
+import com.copilot.stealth.data.models.SttLanguageMode
+import com.copilot.stealth.data.repository.CarrierProfileRepository
 import com.copilot.stealth.data.repository.SessionExportManager
 import com.copilot.stealth.engine.audio.AudioRecorder
 import com.copilot.stealth.engine.audio.AudioTestBench
 import com.copilot.stealth.engine.audio.BluetoothAudioMonitor
+import com.copilot.stealth.engine.audio.DiscreetAudioPrompter
 import com.copilot.stealth.engine.audio.DiscreetHapticHelper
 import com.copilot.stealth.engine.audio.SileroVadDetector
 import com.copilot.stealth.engine.calculator.FreightCalculatorEngine
 import com.copilot.stealth.engine.llm.LocalLlmEngine
+import com.copilot.stealth.engine.stt.AndroidOnDeviceSpeechToText
 import com.copilot.stealth.engine.stt.SherpaSpeechToText
 import com.copilot.stealth.service.StealthOverlayService
 import kotlinx.coroutines.Job
@@ -29,11 +34,14 @@ import kotlinx.coroutines.launch
 
 /**
  * State machine coordinator managing audio ingestion, VAD segmentation,
- * speech recognition, on-device inference, and the 180s auto-standby watchdog.
+ * bilingual speech recognition, on-device inference, whisper prompter, and watchdog.
  */
 class StealthViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val _uiState = MutableStateFlow(StealthUiState())
+    private val carrierProfileRepository = CarrierProfileRepository(application)
+    private val _uiState = MutableStateFlow(
+        StealthUiState(carrierProfile = carrierProfileRepository.getProfile())
+    )
     val uiState: StateFlow<StealthUiState> = _uiState.asStateFlow()
 
     private val hapticHelper = DiscreetHapticHelper(application)
@@ -41,9 +49,11 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
     private val testBench = AudioTestBench(sampleRate = 16000, frameSize = 512)
     private val vadDetector = SileroVadDetector(application, sampleRate = 16000)
     private val sttEngine = SherpaSpeechToText(application, sampleRate = 16000)
-    private val llmEngine = LocalLlmEngine(application)
+    private val nativeStt = AndroidOnDeviceSpeechToText(application)
+    private val llmEngine = LocalLlmEngine(application, carrierProfileRepository)
     private val bluetoothMonitor = BluetoothAudioMonitor(application)
     private val exportManager = SessionExportManager(application)
+    private val audioPrompter = DiscreetAudioPrompter(application, bluetoothMonitor)
 
     private var audioCaptureJob: Job? = null
     private var watchdogJob: Job? = null
@@ -81,6 +91,14 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
                 }
             }
         }
+        viewModelScope.launch {
+            nativeStt.transcriptFlow.collect { transcript ->
+                if (transcript.isNotBlank() && _uiState.value.isListening) {
+                    lastSpeechTimestamp = System.currentTimeMillis()
+                    executeInference(transcript)
+                }
+            }
+        }
     }
 
     private fun setupBluetoothCollector() {
@@ -101,7 +119,12 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
             is StealthUiIntent.ToggleOverlayMode -> toggleOverlayMode()
             is StealthUiIntent.CycleEngineType -> cycleEngineType()
             is StealthUiIntent.CycleThemeMode -> cycleThemeMode()
+            is StealthUiIntent.CycleSttLanguage -> cycleSttLanguage()
+            is StealthUiIntent.ToggleWhisperMode -> toggleWhisperMode()
             is StealthUiIntent.ToggleCalculator -> toggleCalculator()
+            is StealthUiIntent.ToggleCarrierProfileEditor -> toggleCarrierProfileEditor()
+            is StealthUiIntent.ToggleMockSimulator -> toggleMockSimulator()
+            is StealthUiIntent.SaveCarrierProfile -> saveCarrierProfile(intent.profile)
             is StealthUiIntent.SetAudioSource -> setAudioSource(intent.source)
             is StealthUiIntent.SetBluetoothConnected -> {
                 _uiState.update { it.copy(isBluetoothHeadsetConnected = intent.isConnected) }
@@ -153,6 +176,7 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
 
         val source = _uiState.value.audioInputSource
         if (source == AudioInputSource.MICROPHONE || source == AudioInputSource.SYSTEM_CALL) {
+            nativeStt.startListening(_uiState.value.sttLanguageMode)
             sttEngine.startLiveStream {}
             audioCaptureJob = viewModelScope.launch {
                 try {
@@ -179,7 +203,9 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
         audioCaptureJob = null
         audioRecorder.stop()
         testBench.stop()
+        nativeStt.stopListening()
         sttEngine.stopLiveStream()
+        audioPrompter.stop()
         vadDetector.reset()
         _uiState.update { it.copy(isListening = false, isProcessing = false) }
     }
@@ -196,6 +222,7 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
     private fun panicWipe() {
         clearHistory()
         exportManager.panicWipe()
+        audioPrompter.stop()
         hapticHelper.pulseContextCleared()
     }
 
@@ -234,8 +261,46 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
         _uiState.update { it.copy(themeMode = nextTheme) }
     }
 
+    private fun cycleSttLanguage() {
+        val nextLang = when (_uiState.value.sttLanguageMode) {
+            SttLanguageMode.ENGLISH -> SttLanguageMode.ROMANIAN
+            SttLanguageMode.ROMANIAN -> SttLanguageMode.BILINGUAL_AUTO
+            SttLanguageMode.BILINGUAL_AUTO -> SttLanguageMode.ENGLISH
+        }
+        _uiState.update { it.copy(sttLanguageMode = nextLang) }
+        if (_uiState.value.isListening) {
+            startAudioStream()
+        }
+    }
+
+    private fun toggleWhisperMode() {
+        val next = !_uiState.value.isWhisperEnabled
+        audioPrompter.setWhisperEnabled(next)
+        _uiState.update { it.copy(isWhisperEnabled = next) }
+        if (next) {
+            hapticHelper.pulseSpeechDetected()
+        }
+    }
+
     private fun toggleCalculator() {
         _uiState.update { it.copy(isCalculatorVisible = !it.isCalculatorVisible) }
+    }
+
+    private fun toggleCarrierProfileEditor() {
+        _uiState.update { it.copy(isCarrierProfileOpen = !it.isCarrierProfileOpen) }
+    }
+
+    private fun toggleMockSimulator() {
+        _uiState.update { it.copy(isMockSimulatorOpen = !it.isMockSimulatorOpen) }
+    }
+
+    private fun saveCarrierProfile(profile: CarrierProfile) {
+        carrierProfileRepository.saveProfile(profile)
+        llmEngine.reloadCarrierProfile()
+        _uiState.update {
+            it.copy(carrierProfile = profile, isCarrierProfileOpen = false)
+        }
+        hapticHelper.pulseAnswerReady()
     }
 
     private fun setAudioSource(source: AudioInputSource) {
@@ -282,6 +347,11 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
 
             hapticHelper.pulseAnswerReady()
             StealthOverlayService.updateHudText(getApplication(), turn.answerEn)
+
+            // Whisper key answer into earpiece if enabled
+            if (_uiState.value.isWhisperEnabled) {
+                audioPrompter.whisperAnswerInsight(turn.answerEn)
+            }
         }
     }
 
@@ -290,18 +360,14 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
         startAudioStream()
     }
 
-    /**
-     * Auto-standby watchdog: if no speech is detected for 180 consecutive seconds,
-     * the audio engine transitions to low-power standby mode.
-     */
     private fun startAutoStandbyWatchdog() {
         watchdogJob?.cancel()
         watchdogJob = viewModelScope.launch {
             while (true) {
-                delay(10_000L) // evaluate every 10 seconds
+                delay(10_000L)
                 if (_uiState.value.isListening) {
                     val idleTime = System.currentTimeMillis() - lastSpeechTimestamp
-                    if (idleTime >= 180_000L) { // 180 seconds
+                    if (idleTime >= 180_000L) {
                         stopAudioStream()
                         _uiState.update { it.copy(batterySaverMode = true) }
                     }
@@ -313,8 +379,11 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
     override fun onCleared() {
         stopAudioStream()
         sttEngine.destroy()
+        nativeStt.destroy()
         vadDetector.close()
         bluetoothMonitor.release()
+        audioPrompter.close()
+        llmEngine.close()
         watchdogJob?.cancel()
         super.onCleared()
     }

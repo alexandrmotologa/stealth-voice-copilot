@@ -8,16 +8,20 @@ import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -26,16 +30,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.copilot.stealth.data.models.AudioInputSource
+import com.copilot.stealth.data.models.CarrierProfile
 import com.copilot.stealth.data.models.StealthUiIntent
 import com.copilot.stealth.data.models.StealthUiState
+import com.copilot.stealth.engine.mock.MockInterviewManager
+import com.copilot.stealth.ui.components.CarrierProfileSheet
 import com.copilot.stealth.ui.components.ControlsRow
 import com.copilot.stealth.ui.components.FreightMathBar
+import com.copilot.stealth.ui.components.MockInterviewSheet
 import com.copilot.stealth.ui.components.QuickScenarioSelector
 import com.copilot.stealth.ui.components.TopStatusBar
 import com.copilot.stealth.ui.components.TurnCard
@@ -44,7 +53,8 @@ import com.copilot.stealth.ui.theme.StealthVoiceCopilotTheme
 
 /**
  * Primary covert lockscreen activity displaying continuous interview assistance
- * with true AMOLED black optimization, freight math HUD, and physical volume key overrides.
+ * with true AMOLED black optimization, edge-to-edge insets, carrier customization,
+ * mock simulator, and physical hardware volume key shortcuts.
  */
 class StealthActivity : ComponentActivity() {
 
@@ -66,6 +76,7 @@ class StealthActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
         configureLockscreenFlags()
@@ -84,7 +95,12 @@ class StealthActivity : ComponentActivity() {
                     onToggleOverlay = { viewModel.processIntent(StealthUiIntent.ToggleOverlayMode) },
                     onCycleEngine = { viewModel.processIntent(StealthUiIntent.CycleEngineType) },
                     onCycleTheme = { viewModel.processIntent(StealthUiIntent.CycleThemeMode) },
+                    onCycleSttLanguage = { viewModel.processIntent(StealthUiIntent.CycleSttLanguage) },
+                    onToggleWhisper = { viewModel.processIntent(StealthUiIntent.ToggleWhisperMode) },
                     onToggleCalculator = { viewModel.processIntent(StealthUiIntent.ToggleCalculator) },
+                    onToggleCarrierProfile = { viewModel.processIntent(StealthUiIntent.ToggleCarrierProfileEditor) },
+                    onToggleMockSimulator = { viewModel.processIntent(StealthUiIntent.ToggleMockSimulator) },
+                    onSaveCarrierProfile = { profile -> viewModel.processIntent(StealthUiIntent.SaveCarrierProfile(profile)) },
                     onToggleAudioSource = {
                         val nextSource = when (uiState.audioInputSource) {
                             AudioInputSource.MICROPHONE -> AudioInputSource.SYSTEM_CALL
@@ -128,7 +144,7 @@ class StealthActivity : ComponentActivity() {
             KeyEvent.KEYCODE_VOLUME_UP -> {
                 val currentTime = System.currentTimeMillis()
                 if (currentTime - lastVolumeUpPressTime < 450) {
-                    // Double click: Panic wipe RAM, clipboard and temp files
+                    // Double click: Emergency panic wipe
                     viewModel.processIntent(StealthUiIntent.PanicWipe)
                     lastVolumeUpPressTime = 0L
                     return true
@@ -140,10 +156,10 @@ class StealthActivity : ComponentActivity() {
                 if (event?.repeatCount == 0) {
                     volumeDownPressStartTime = System.currentTimeMillis()
                 } else if (event != null && event.repeatCount > 1) {
-                    // Long press detected: toggle Romanian translations
+                    // Long press detected: toggle Romanian translation
                     if (System.currentTimeMillis() - volumeDownPressStartTime > 500) {
                         viewModel.processIntent(StealthUiIntent.ToggleRomanian)
-                        volumeDownPressStartTime = Long.MAX_VALUE // prevent continuous toggle
+                        volumeDownPressStartTime = Long.MAX_VALUE
                         return true
                     }
                 }
@@ -165,13 +181,19 @@ fun StealthScreen(
     onToggleOverlay: () -> Unit,
     onCycleEngine: () -> Unit,
     onCycleTheme: () -> Unit,
+    onCycleSttLanguage: () -> Unit,
+    onToggleWhisper: () -> Unit,
     onToggleCalculator: () -> Unit,
+    onToggleCarrierProfile: () -> Unit,
+    onToggleMockSimulator: () -> Unit,
+    onSaveCarrierProfile: (CarrierProfile) -> Unit,
     onToggleAudioSource: () -> Unit,
     onRunTestBench: () -> Unit,
     onScenarioSelected: (String) -> Unit
 ) {
     val listState = rememberLazyListState()
     val palette = LocalStealthPalette.current
+    val mockManager = remember { MockInterviewManager() }
 
     LaunchedEffect(uiState.currentTurns.size) {
         if (uiState.currentTurns.isNotEmpty()) {
@@ -179,95 +201,134 @@ fun StealthScreen(
         }
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(palette.background)
+            .windowInsetsPadding(WindowInsets.safeDrawing)
     ) {
-        // Minimal AMOLED Top Status Bar
-        TopStatusBar(
-            uiState = uiState,
-            onToggleRomanian = onToggleRomanian,
-            onCycleEngine = onCycleEngine,
-            onToggleOverlay = onToggleOverlay,
-            onCycleTheme = onCycleTheme,
-            onToggleCalculator = onToggleCalculator
-        )
-
-        // Freight Math Calculator Bar (Collapsible)
-        if (uiState.isCalculatorVisible) {
-            FreightMathBar(
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Minimal AMOLED Top Status Bar
+            TopStatusBar(
                 uiState = uiState,
-                palette = palette,
-                onQuoteSelected = onScenarioSelected,
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                onToggleRomanian = onToggleRomanian,
+                onCycleEngine = onCycleEngine,
+                onCycleSttLanguage = onCycleSttLanguage,
+                onToggleWhisper = onToggleWhisper,
+                onToggleOverlay = onToggleOverlay,
+                onCycleTheme = onCycleTheme,
+                onToggleCalculator = onToggleCalculator,
+                onToggleCarrierProfile = onToggleCarrierProfile,
+                onToggleMockSimulator = onToggleMockSimulator
+            )
+
+            // Collapsible Freight Math Bar
+            if (uiState.isCalculatorVisible) {
+                FreightMathBar(
+                    uiState = uiState,
+                    palette = palette,
+                    onQuoteSelected = onScenarioSelected,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+            }
+
+            // Quick freight scenario tester chips
+            QuickScenarioSelector(
+                onScenarioSelected = onScenarioSelected
+            )
+
+            // Error banner if any
+            if (uiState.errorMessage != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(palette.surface)
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = uiState.errorMessage,
+                        color = com.copilot.stealth.ui.theme.StatusError,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+
+            // Dialogue History
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp)
+            ) {
+                if (uiState.currentTurns.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (uiState.isListening) "LISTENING FOR INTERVIEWER..." else "READY • TAP MIC OR BENCH",
+                            color = palette.textMetadata,
+                            fontSize = 11.sp,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(uiState.currentTurns, key = { it.id }) { turn ->
+                            TurnCard(
+                                turn = turn,
+                                isRomanianEnabled = uiState.isRomanianEnabled
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                        }
+                    }
+                }
+            }
+
+            // Bottom Controls
+            ControlsRow(
+                uiState = uiState,
+                onToggleListening = onToggleListening,
+                onClearHistory = onClearHistory,
+                onToggleAudioSource = onToggleAudioSource,
+                onRunTestBench = onRunTestBench,
+                onExportTranscript = onExportTranscript
             )
         }
 
-        // Quick freight scenario tester chips
-        QuickScenarioSelector(
-            onScenarioSelected = onScenarioSelected
-        )
-
-        // Error banner if any
-        if (uiState.errorMessage != null) {
+        // Overlay Sheets
+        if (uiState.isCarrierProfileOpen) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .background(palette.surface)
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .fillMaxSize()
+                    .background(palette.background.copy(alpha = 0.75f)),
+                contentAlignment = Alignment.BottomCenter
             ) {
-                Text(
-                    text = uiState.errorMessage,
-                    color = com.copilot.stealth.ui.theme.StatusError,
-                    fontSize = 12.sp
+                CarrierProfileSheet(
+                    currentProfile = uiState.carrierProfile,
+                    palette = palette,
+                    onSaveProfile = onSaveCarrierProfile,
+                    onDismiss = onToggleCarrierProfile
                 )
             }
         }
 
-        // Conversation History or Empty Stealth State
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-        ) {
-            if (uiState.currentTurns.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (uiState.isListening) "LISTENING FOR INTERVIEWER..." else "READY - TAP MIC OR BENCH",
-                        color = palette.textMetadata,
-                        fontSize = 11.sp,
-                        letterSpacing = 1.sp
-                    )
-                }
-            } else {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(uiState.currentTurns, key = { it.id }) { turn ->
-                        TurnCard(
-                            turn = turn,
-                            isRomanianEnabled = uiState.isRomanianEnabled
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                    }
-                }
+        if (uiState.isMockSimulatorOpen) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(palette.background.copy(alpha = 0.75f)),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                MockInterviewSheet(
+                    mockManager = mockManager,
+                    palette = palette,
+                    onDismiss = onToggleMockSimulator
+                )
             }
         }
-
-        // Bottom Controls
-        ControlsRow(
-            uiState = uiState,
-            onToggleListening = onToggleListening,
-            onClearHistory = onClearHistory,
-            onToggleAudioSource = onToggleAudioSource,
-            onRunTestBench = onRunTestBench,
-            onExportTranscript = onExportTranscript
-        )
     }
 }

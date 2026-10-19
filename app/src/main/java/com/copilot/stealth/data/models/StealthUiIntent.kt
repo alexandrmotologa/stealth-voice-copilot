@@ -10,9 +10,14 @@ sealed interface StealthUiIntent {
     data object ToggleOverlayMode : StealthUiIntent
     data object CycleEngineType : StealthUiIntent
     data object CycleThemeMode : StealthUiIntent
+    data object CycleSttLanguage : StealthUiIntent
+    data object ToggleWhisperMode : StealthUiIntent
     data object ToggleCalculator : StealthUiIntent
+    data object ToggleCarrierProfileEditor : StealthUiIntent
+    data object ToggleMockSimulator : StealthUiIntent
     data object PanicWipe : StealthUiIntent
     data object ExportTranscript : StealthUiIntent
+    data class SaveCarrierProfile(val profile: CarrierProfile) : StealthUiIntent
     data class SetAudioSource(val source: AudioInputSource) : StealthUiIntent
     data class SetBluetoothConnected(val isConnected: Boolean) : StealthUiIntent
     data class OnSpeechDetected(val audioBuffer: FloatArray) : StealthUiIntent
