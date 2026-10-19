@@ -58,8 +58,8 @@ class FreightKnowledgeEngine(
                     "Good morning, can you hear me ok?",
                     "Hi, thanks for joining the call."
                 ),
-                answerEn = "Hello! I am doing great, thank you. I am ready to discuss our freight operations and dispatching experience. How are you doing today?",
-                answerRo = "Salut! Sunt foarte bine, multumesc. Sunt pregatit sa discutam despre operatiunile noastre de dispatch si logistica. Dumneavoastra ce mai faceti?",
+                answerEn = "Hello, I am good, thank you, and you?",
+                answerRo = "Buna, sunt bine, multumesc! Dumneavoastra ce mai faceti?",
                 questionRo = "Buna, ce mai faci? / Salutare, cum merg lucrurile?"
             ),
             FreightScenario(
@@ -70,8 +70,8 @@ class FreightKnowledgeEngine(
                     "Walk me through your freight dispatching background.",
                     "How long have you been dispatching freight?"
                 ),
-                answerEn = "I manage dry van and reefer freight across key US lanes, specializing in DAT and Truckstop load booking, rate negotiation, driver HOS tracking on ELD systems, and prompt detention recovery.",
-                answerRo = "Gestionez incarcaturi dry van si reefer pe rutele principale SUA, specializandu-ma in rezervare pe DAT/Truckstop, negociere tarife, urmarire HOS pe ELD si recuperare detentie.",
+                answerEn = "I have solid freight dispatching experience managing dry van and reefer loads on DAT and Truckstop, focusing on high RPM and ELD compliance.",
+                answerRo = "Am experienta solida in dispatching pentru dry van si reefer pe DAT/Truckstop, negociere tarife si conformitate ELD.",
                 questionRo = "Povesteste-mi despre tine si experienta ta in dispatch."
             )
         )
@@ -88,15 +88,22 @@ class FreightKnowledgeEngine(
 
     fun evaluate(query: String, isRomanianEnabled: Boolean): MatchResult {
         val cleanQuery = query.trim().lowercase()
+
+        // Fast-path for conversational greetings, audio checks, and small talk
+        val fastMatch = matchConversationalFastPath(cleanQuery, isRomanianEnabled)
+        if (fastMatch != null) {
+            return fastMatch
+        }
+
         val queryTokens = tokenize(cleanQuery)
 
         if (queryTokens.isEmpty()) {
             return MatchResult(
-                category = "General Logistics",
-                confidence = 0.5f,
-                answerEn = "I maintain active communication with brokers and drivers, verify all rate confirmations and appointment windows, and resolve accessorial delays proactively.",
-                answerRo = if (isRomanianEnabled) "Mentin comunicarea constanta cu brokerii si soferii, verific toate confirmarile si rezolv prompt intarzierile." else null,
-                questionRo = if (isRomanianEnabled) "Cum gestionezi operatiunile generale de dispatch?" else null
+                category = "General Inquiry",
+                confidence = 0.6f,
+                answerEn = "Could you please repeat that? I am ready to discuss our lanes, rates, and dispatch operations.",
+                answerRo = if (isRomanianEnabled) "Puteti repeta? Sunt gata sa discutam despre rute, tarife si disponibilitate." else null,
+                questionRo = if (isRomanianEnabled) "Puteti clarifica intrebarea?" else null
             )
         }
 
@@ -111,7 +118,17 @@ class FreightKnowledgeEngine(
             }
         }
 
-        val scenario = bestScenario ?: allScenarios.first()
+        if (bestScenario == null || highestScore < 0.15f) {
+            return MatchResult(
+                category = "General Inquiry",
+                confidence = 0.50f,
+                answerEn = "Could you please repeat that? I am ready to discuss our lanes, rates, and dispatch operations.",
+                answerRo = if (isRomanianEnabled) "Puteti repeta? Sunt gata sa discutam despre rute, tarife si disponibilitate." else null,
+                questionRo = if (isRomanianEnabled) "Puteti clarifica intrebarea?" else null
+            )
+        }
+
+        val scenario = bestScenario
         val normalizedConfidence = highestScore.coerceIn(0.45f, 0.98f)
 
         return MatchResult(
@@ -152,7 +169,13 @@ class FreightKnowledgeEngine(
         // Keyword trigger presence with fuzzy distance for heavy accents
         for (keyword in scenario.triggerKeywords) {
             val lowerKeyword = keyword.lowercase()
-            if (rawQuery.contains(lowerKeyword)) {
+            val hasDirectMatch = if (lowerKeyword.length <= 3) {
+                Regex("\\b${Regex.escape(lowerKeyword)}\\b").containsMatchIn(rawQuery)
+            } else {
+                rawQuery.contains(lowerKeyword)
+            }
+
+            if (hasDirectMatch) {
                 score += 0.40f
             } else {
                 val kwParts = lowerKeyword.split(" ")
@@ -202,10 +225,83 @@ class FreightKnowledgeEngine(
         return dp[s1.length][s2.length]
     }
 
+    private fun matchConversationalFastPath(cleanQuery: String, isRomanianEnabled: Boolean): MatchResult? {
+        // Direct checks for how are you / greetings
+        val isHowAreYou = cleanQuery.contains("how are you") ||
+                cleanQuery.contains("how are you doing") ||
+                cleanQuery.contains("how is it going") ||
+                cleanQuery.contains("hows it going") ||
+                cleanQuery.contains("how are things") ||
+                cleanQuery == "how are you" ||
+                cleanQuery == "how are u"
+
+        if (isHowAreYou) {
+            return MatchResult(
+                category = "Interview Greeting",
+                confidence = 0.98f,
+                answerEn = "Hello, I am good, thank you, and you?",
+                answerRo = if (isRomanianEnabled) "Buna, sunt bine, multumesc! Dumneavoastra ce mai faceti?" else null,
+                questionRo = if (isRomanianEnabled) "Buna, ce mai faceti?" else null
+            )
+        }
+
+        // Pure greetings (Hi, Hello, Hey, Good morning, etc.)
+        val isGreeting = cleanQuery == "hi" ||
+                cleanQuery == "hello" ||
+                cleanQuery == "hey" ||
+                cleanQuery == "hey there" ||
+                cleanQuery.startsWith("good morning") ||
+                cleanQuery.startsWith("good afternoon") ||
+                cleanQuery.startsWith("good evening")
+
+        if (isGreeting) {
+            return MatchResult(
+                category = "Interview Greeting",
+                confidence = 0.98f,
+                answerEn = "Hello! Thank you for having me today.",
+                answerRo = if (isRomanianEnabled) "Buna ziua! Va multumesc pentru oportunitate." else null,
+                questionRo = if (isRomanianEnabled) "Buna ziua / Salut" else null
+            )
+        }
+
+        // Audio mic checks: can you hear me
+        val isAudioCheck = cleanQuery.contains("can you hear me") ||
+                cleanQuery.contains("hear me ok") ||
+                cleanQuery.contains("are you there") ||
+                cleanQuery.contains("do you hear me")
+
+        if (isAudioCheck) {
+            return MatchResult(
+                category = "Audio Check",
+                confidence = 0.98f,
+                answerEn = "Yes, loud and clear! Can you hear me ok?",
+                answerRo = if (isRomanianEnabled) "Da, va aud foarte clar! Ma auziti bine?" else null,
+                questionRo = if (isRomanianEnabled) "Ma auziti bine?" else null
+            )
+        }
+
+        // Polite thanks
+        val isThanks = cleanQuery == "thank you" ||
+                cleanQuery == "thanks" ||
+                cleanQuery.startsWith("thank you") ||
+                cleanQuery == "thanks a lot"
+
+        if (isThanks) {
+            return MatchResult(
+                category = "Polite Response",
+                confidence = 0.98f,
+                answerEn = "You are welcome! Glad to assist.",
+                answerRo = if (isRomanianEnabled) "Cu mare placere!" else null,
+                questionRo = if (isRomanianEnabled) "Multumesc" else null
+            )
+        }
+
+        return null
+    }
+
     private fun tokenize(text: String): Set<String> {
         val stopWords = setOf(
-            "the", "a", "an", "is", "are", "do", "you", "what", "how", "when",
-            "where", "why", "if", "and", "or", "in", "on", "at", "to", "for",
+            "the", "a", "an", "is", "and", "or", "in", "on", "at", "to", "for", "of", "with"
         )
         return text.split(Regex("[^a-zA-Z0-9]+"))
             .filter { it.isNotBlank() && !stopWords.contains(it) && it.length > 1 }

@@ -119,12 +119,28 @@ class FreightKnowledgeEngineTest {
     }
 
     @Test
+    fun testConversationalGreetingsAndHowAreYou() {
+        val res1 = engine.evaluate("Hi, how are you?", isRomanianEnabled = true)
+        assertEquals("Interview Greeting", res1.category)
+        assertEquals("Hello, I am good, thank you, and you?", res1.answerEn)
+        assertEquals("Buna, sunt bine, multumesc! Dumneavoastra ce mai faceti?", res1.answerRo)
+
+        val res2 = engine.evaluate("how are you", isRomanianEnabled = true)
+        assertEquals("Interview Greeting", res2.category)
+        assertEquals("Hello, I am good, thank you, and you?", res2.answerEn)
+
+        val res3 = engine.evaluate("Can you hear me ok?", isRomanianEnabled = true)
+        assertEquals("Audio Check", res3.category)
+        assertTrue(res3.answerEn.contains("loud and clear"))
+    }
+
+    @Test
     fun testGenericFallbackForUnmatchedQuery() {
-        val query = "Hello can you hear me?"
+        val query = "xylophone banana spaceship"
         val result = engine.evaluate(query, isRomanianEnabled = true)
 
-        assertNotNull(result.category)
-        assertTrue(result.answerEn.isNotBlank())
+        assertEquals("General Inquiry", result.category)
+        assertTrue(result.answerEn.contains("repeat that"))
     }
 
     @Test

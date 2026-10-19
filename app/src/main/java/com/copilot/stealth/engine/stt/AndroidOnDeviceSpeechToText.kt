@@ -14,8 +14,8 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
 /**
- * Native on-device speech recognizer leveraging Google Pixel 6 Pro Tensor speech models
- * via Android SpeechRecognizer with EXTRA_PREFER_OFFLINE = true.
+ * Continuous on-device speech recognizer with resilient auto-reconnect,
+ * pause tolerance, and automatic recovery from Android/MIUI IPC binder stalls.
  */
 class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionListener {
 
@@ -33,7 +33,11 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
 
     private var speechRecognizer: SpeechRecognizer? = null
     private val mainHandler = Handler(Looper.getMainLooper())
-    private var isListening = false
+
+    // Master user intent: once started, listen continuously across all questions until explicitly stopped
+    @Volatile
+    private var isContinuousListeningRequested = false
+
     private var consecutiveErrors = 0
     private var retryRunnable: Runnable? = null
     private var currentLanguageMode: com.copilot.stealth.data.models.SttLanguageMode =
@@ -43,10 +47,18 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
 
     fun startListening(languageMode: com.copilot.stealth.data.models.SttLanguageMode = com.copilot.stealth.data.models.SttLanguageMode.ENGLISH) {
         currentLanguageMode = languageMode
+        isContinuousListeningRequested = true
+        startListeningInternal()
+    }
+
+    private fun startListeningInternal() {
+        if (!isContinuousListeningRequested) return
+
         mainHandler.post {
+            if (!isContinuousListeningRequested) return@post
             try {
                 if (!SpeechRecognizer.isRecognitionAvailable(context)) {
-                    isListening = false
+                    isContinuousListeningRequested = false
                     onSpeechStatusChanged?.invoke(false)
                     return@post
                 }
@@ -62,7 +74,7 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
                     speechRecognizer?.setRecognitionListener(this)
                 }
 
-                val primaryLang = when (languageMode) {
+                val primaryLang = when (currentLanguageMode) {
                     com.copilot.stealth.data.models.SttLanguageMode.ENGLISH -> "en-US"
                     com.copilot.stealth.data.models.SttLanguageMode.ROMANIAN -> "ro-RO"
                     com.copilot.stealth.data.models.SttLanguageMode.BILINGUAL_AUTO -> "en-US"
@@ -71,7 +83,7 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE, primaryLang)
-                    if (languageMode == com.copilot.stealth.data.models.SttLanguageMode.BILINGUAL_AUTO && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    if (currentLanguageMode == com.copilot.stealth.data.models.SttLanguageMode.BILINGUAL_AUTO && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         putExtra("android.speech.extra.ADDITIONAL_LANGUAGES", arrayOf("ro-RO", "en-US"))
                     }
                     putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
@@ -80,20 +92,29 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
                 }
 
                 cancelPendingRetry()
-                isListening = true
+
+                // Cancel previous session before starting new one to ensure clean binder state
+                try {
+                    speechRecognizer?.cancel()
+                } catch (_: Exception) {}
+
                 speechRecognizer?.startListening(intent)
                 onSpeechStatusChanged?.invoke(true)
             } catch (e: Exception) {
-                isListening = false
-                onSpeechStatusChanged?.invoke(false)
+                // Recover gracefully without aborting continuous listening loop
+                try {
+                    speechRecognizer?.destroy()
+                } catch (_: Exception) {}
+                speechRecognizer = null
+                scheduleRestart(350L)
             }
         }
     }
 
     fun stopListening() {
+        isContinuousListeningRequested = false
         mainHandler.post {
             cancelPendingRetry()
-            isListening = false
             consecutiveErrors = 0
             onSpeechStatusChanged?.invoke(false)
             try {
@@ -104,9 +125,9 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
     }
 
     fun destroy() {
+        isContinuousListeningRequested = false
         mainHandler.post {
             cancelPendingRetry()
-            isListening = false
             consecutiveErrors = 0
             onSpeechStatusChanged?.invoke(false)
             try {
@@ -121,6 +142,17 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
         retryRunnable = null
     }
 
+    private fun scheduleRestart(delayMs: Long) {
+        if (!isContinuousListeningRequested) return
+        cancelPendingRetry()
+        retryRunnable = Runnable {
+            if (isContinuousListeningRequested) {
+                startListeningInternal()
+            }
+        }
+        mainHandler.postDelayed(retryRunnable!!, delayMs)
+    }
+
     override fun onResults(results: Bundle?) {
         consecutiveErrors = 0
         val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
@@ -130,12 +162,12 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
             _finalTranscriptFlow.tryEmit(normalized)
         }
 
-        if (isListening) {
-            cancelPendingRetry()
-            retryRunnable = Runnable {
-                if (isListening) startListening(currentLanguageMode)
-            }
-            mainHandler.postDelayed(retryRunnable!!, 150L)
+        // Seamlessly continue listening for next question/utterance
+        if (isContinuousListeningRequested) {
+            try {
+                speechRecognizer?.cancel()
+            } catch (_: Exception) {}
+            scheduleRestart(200L)
         }
     }
 
@@ -149,36 +181,44 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
     }
 
     override fun onError(error: Int) {
-        if (!isListening) return
+        if (!isContinuousListeningRequested) return
 
         if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
-            isListening = false
+            isContinuousListeningRequested = false
             cancelPendingRetry()
             onSpeechStatusChanged?.invoke(false)
             return
         }
 
-        consecutiveErrors++
-        if (consecutiveErrors >= 6) {
-            try {
-                speechRecognizer?.destroy()
-            } catch (_: Exception) {}
-            speechRecognizer = null
+        // NO_MATCH (7) and SPEECH_TIMEOUT (6) are natural conversational silence pauses.
+        // They are completely normal during interviews and MUST NOT kill the continuous session!
+        val isSilenceTimeout = error == SpeechRecognizer.ERROR_NO_MATCH ||
+                error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
+
+        if (!isSilenceTimeout) {
+            consecutiveErrors++
+            if (consecutiveErrors >= 3 || error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY || error == SpeechRecognizer.ERROR_CLIENT) {
+                try {
+                    speechRecognizer?.cancel()
+                    speechRecognizer?.destroy()
+                } catch (_: Exception) {}
+                speechRecognizer = null
+                consecutiveErrors = 0
+            }
+        } else {
             consecutiveErrors = 0
+            try {
+                speechRecognizer?.cancel()
+            } catch (_: Exception) {}
         }
 
-        val retryDelay = when (error) {
-            SpeechRecognizer.ERROR_NO_MATCH,
-            SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 100L
-            SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> 350L
-            else -> 500L
+        val retryDelay = when {
+            isSilenceTimeout -> 100L
+            error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> 350L
+            else -> 400L
         }
 
-        cancelPendingRetry()
-        retryRunnable = Runnable {
-            if (isListening) startListening(currentLanguageMode)
-        }
-        mainHandler.postDelayed(retryRunnable!!, retryDelay)
+        scheduleRestart(retryDelay)
     }
 
     override fun onReadyForSpeech(params: Bundle?) {
