@@ -1,0 +1,155 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <clipPath id="squircle-clip">
+      <rect x="24" y="24" width="976" height="976" rx="220" />
+    </clipPath>
+
+    <!-- Stealth Audio Brand Gradients -->
+    <linearGradient id="emerald-stealth" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3ddc84"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+
+    <linearGradient id="cyan-stealth" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f5ff"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+
+    <!-- Precision Low-Poly Facet Shading -->
+    <linearGradient id="f-highlight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#cbd5e1"/>
+      <stop offset="100%" stop-color="#94a3b8"/>
+    </linearGradient>
+
+    <linearGradient id="f-light" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#64748b"/>
+      <stop offset="100%" stop-color="#475569"/>
+    </linearGradient>
+
+    <linearGradient id="f-mid" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+
+    <linearGradient id="f-dark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+
+    <linearGradient id="f-obsidian" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+
+    <filter id="owl-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="22" flood-color="#000000" flood-opacity="0.20" />
+    </filter>
+
+    <filter id="optic-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- 1. Luxury White Squircle Container -->
+  <rect x="24" y="24" width="976" height="976" rx="220" fill="#ffffff" stroke="#e2e8f0" stroke-width="6" />
+
+  <g clip-path="url(#squircle-clip)">
+    <!-- Centered Coordinate Space -->
+    <g transform="translate(512, 512)" filter="url(#owl-shadow)">
+
+      <!-- 2. Acoustic Gateway Hexagonal Frame -->
+      <polygon points="0,-420 364,-210 364,210 0,420 -364,210 -364,-210"
+               fill="none" stroke="#0f172a" stroke-width="36" stroke-linejoin="round" />
+      <polygon points="0,-375 325,-187 325,187 0,375 -325,187 -325,-187"
+               fill="none" stroke="#3ddc84" stroke-width="4" stroke-dasharray="14,14" opacity="0.45" />
+
+      <!-- Acoustic Soundwave Reticle Arcs -->
+      <path d="M -180,-300 A 350 350 0 0 1 180,-300" fill="none" stroke="#00f5ff" stroke-width="3" opacity="0.35" stroke-dasharray="6,8" />
+      <path d="M -220,290 A 370 370 0 0 0 220,290" fill="none" stroke="#3ddc84" stroke-width="3" opacity="0.35" stroke-dasharray="6,8" />
+
+      <!-- 3. Watertight Solid Base Silhouette (Zero-Leak Rule) -->
+      <path d="M 0,-310 
+               L 110,-280 L 210,-240 L 260,-120 L 280,0 L 270,140 L 210,240 L 120,320 L 0,340 
+               L -120,320 L -210,240 L -270,140 L -280,0 L -260,-120 L -210,-240 L -110,-280 Z"
+            fill="#0f172a" />
+
+      <!-- 4. Low-Poly Stealth Owl Crest & Facial Sound-Focus Disk -->
+      <!-- Forehead Crown -->
+      <polygon points="0,-310 65,-270 0,-220" fill="url(#f-light)" />
+      <polygon points="0,-310 -65,-270 0,-220" fill="url(#f-mid)" />
+      <polygon points="0,-310 65,-270 140,-250" fill="url(#f-mid)" />
+      <polygon points="0,-310 -65,-270 -140,-250" fill="url(#f-dark)" />
+      <polygon points="140,-250 210,-220 180,-140 100,-170" fill="url(#f-light)" />
+      <polygon points="-140,-250 -210,-220 -180,-140 -100,-170" fill="url(#f-dark)" />
+
+      <!-- Brow Feathers & Acoustic Cones -->
+      <polygon points="0,-220 65,-270 100,-170 0,-150" fill="url(#f-highlight)" />
+      <polygon points="0,-220 -65,-270 -100,-170 0,-150" fill="url(#f-light)" />
+      <polygon points="0,-150 100,-170 110,-90 0,-70" fill="url(#f-mid)" />
+      <polygon points="0,-150 -100,-170 -110,-90 0,-70" fill="url(#f-dark)" />
+
+      <!-- Facial Disc Wings (Acoustic Reflector) -->
+      <polygon points="100,-170 180,-140 190,-40 110,-90" fill="url(#f-dark)" />
+      <polygon points="-100,-170 -180,-140 -190,-40 -110,-90" fill="url(#f-obsidian)" />
+      <polygon points="180,-140 250,-80 230,40 190,-40" fill="url(#f-mid)" />
+      <polygon points="-180,-140 -250,-80 -230,40 -190,-40" fill="url(#f-dark)" />
+
+      <!-- Outer Ear Flaps (Acoustic Sensors) -->
+      <polygon points="210,-220 270,-130 250,-80 180,-140" fill="url(#f-light)" />
+      <polygon points="-210,-220 -270,-130 -250,-80 -180,-140" fill="url(#f-dark)" />
+      <polygon points="250,-80 275,20 230,40" fill="url(#f-obsidian)" />
+      <polygon points="-250,-80 -275,20 -230,40" fill="url(#f-obsidian)" />
+
+      <!-- Piercing Emerald & Cyan Acoustic Optics (Eyes) -->
+      <!-- Left Eye Orbit (Viewer's Left) -->
+      <polygon points="-110,-90 -45,-80 -35,-25 -100,-35" fill="#020617" />
+      <polygon points="-98,-75 -52,-68 -45,-33 -92,-40" fill="url(#emerald-stealth)" />
+      <!-- Pupil Slit & Lens Highlight -->
+      <polygon points="-75,-70 -65,-70 -68,-36 -78,-36" fill="#ffffff" opacity="0.9" filter="url(#optic-glow)" />
+
+      <!-- Right Eye Orbit (Viewer's Right) -->
+      <polygon points="110,-90 45,-80 35,-25 100,-35" fill="#020617" />
+      <polygon points="98,-75 52,-68 45,-33 92,-40" fill="url(#emerald-stealth)" />
+      <!-- Pupil Slit & Lens Highlight -->
+      <polygon points="75,-70 65,-70 68,-36 78,-36" fill="#ffffff" opacity="0.9" filter="url(#optic-glow)" />
+
+      <!-- Sharp Aerodynamic Beak (Whisper Transmitter) -->
+      <polygon points="0,-70 35,-25 0,80" fill="url(#cyan-stealth)" />
+      <polygon points="0,-70 -35,-25 0,80" fill="#0284c7" />
+      <polygon points="0,80 22,25 0,110" fill="#00f5ff" />
+      <polygon points="0,80 -22,25 0,110" fill="#0369a1" />
+
+      <!-- Cheeks & Facial Disc Lower Border -->
+      <polygon points="35,-25 100,-35 120,50 30,60" fill="url(#f-highlight)" />
+      <polygon points="-35,-25 -100,-35 -120,50 -30,60" fill="url(#f-light)" />
+      <polygon points="100,-35 190,-40 180,60 120,50" fill="url(#f-light)" />
+      <polygon points="-100,-35 -190,-40 -180,60 -120,50" fill="url(#f-mid)" />
+
+      <!-- Throat & Stealth Mantle -->
+      <polygon points="0,110 30,60 70,140 0,180" fill="url(#f-light)" />
+      <polygon points="0,110 -30,60 -70,140 0,180" fill="url(#f-mid)" />
+      <polygon points="30,60 120,50 140,150 70,140" fill="url(#f-mid)" />
+      <polygon points="-30,60 -120,50 -140,150 -70,140" fill="url(#f-dark)" />
+      <polygon points="120,50 180,60 190,160 140,150" fill="url(#f-dark)" />
+      <polygon points="-120,50 -180,60 -190,160 -140,150" fill="url(#f-obsidian)" />
+
+      <!-- Chest Armor Plating (Folded Wings) -->
+      <polygon points="0,180 70,140 110,240 0,270" fill="url(#f-mid)" />
+      <polygon points="0,180 -70,140 -110,240 0,270" fill="url(#f-dark)" />
+      <polygon points="70,140 140,150 170,240 110,240" fill="url(#f-light)" />
+      <polygon points="-70,140 -140,150 -170,240 -110,240" fill="url(#f-dark)" />
+
+      <!-- Lower Plume & Tail Keel -->
+      <polygon points="0,270 110,240 70,330 0,340" fill="url(#f-dark)" />
+      <polygon points="0,270 -110,240 -70,330 0,340" fill="url(#f-obsidian)" />
+      <polygon points="110,240 170,240 130,320 70,330" fill="url(#f-obsidian)" />
+      <polygon points="-110,240 -170,240 -130,320 -70,330" fill="url(#f-obsidian)" />
+
+      <!-- Core Acoustic Focal Node (Cyan Center Jewel) -->
+      <polygon points="0,200 18,225 0,250 -18,225" fill="url(#cyan-stealth)" />
+      <circle cx="0" cy="225" r="4" fill="#ffffff" opacity="0.9" filter="url(#optic-glow)" />
+
+    </g>
+  </g>
+</svg>

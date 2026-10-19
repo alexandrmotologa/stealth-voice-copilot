@@ -12,4 +12,6 @@
     <string name="channel_description">Maintains offline audio capture during interviews</string>
     <string name="notification_title">Stealth Copilot Active</string>
     <string name="notification_text">Monitoring audio for logistics interview prompts</string>
+    <string name="widget_name">Stealth Copilot (Lock Screen)</string>
+    <string name="widget_description">Discreet AMOLED lockscreen and homescreen prompter widget for freight negotiations</string>
 </resources>

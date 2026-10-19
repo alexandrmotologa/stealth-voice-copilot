@@ -19,19 +19,12 @@ class SherpaSpeechToText(
     private val _transcriptFlow = MutableSharedFlow<String>(extraBufferCapacity = 16)
     val transcriptFlow: SharedFlow<String> = _transcriptFlow.asSharedFlow()
 
-    private val onDeviceRecognizer = AndroidOnDeviceSpeechToText(context)
-
-    init {
-        // Relay recognizer output into our transcript flow
-        // Handled via lifecycle in ViewModel/ForegroundService
-    }
-
     fun startLiveStream(onTranscript: (String) -> Unit) {
-        onDeviceRecognizer.startListening()
+        // Direct stream ready
     }
 
     fun stopLiveStream() {
-        onDeviceRecognizer.stopListening()
+        // Direct stream stopped
     }
 
     /**
@@ -94,6 +87,6 @@ class SherpaSpeechToText(
     }
 
     fun destroy() {
-        onDeviceRecognizer.destroy()
+        // Resources released
     }
 }

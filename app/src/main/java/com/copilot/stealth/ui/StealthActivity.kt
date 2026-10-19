@@ -30,7 +30,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -45,7 +47,7 @@ import com.copilot.stealth.ui.components.CarrierProfileSheet
 import com.copilot.stealth.ui.components.ControlsRow
 import com.copilot.stealth.ui.components.FreightMathBar
 import com.copilot.stealth.ui.components.MockInterviewSheet
-import com.copilot.stealth.ui.components.QuickScenarioSelector
+import com.copilot.stealth.ui.components.ToolsBottomSheet
 import com.copilot.stealth.ui.components.TopStatusBar
 import com.copilot.stealth.ui.components.TurnCard
 import com.copilot.stealth.ui.theme.LocalStealthPalette
@@ -194,6 +196,7 @@ fun StealthScreen(
     val listState = rememberLazyListState()
     val palette = LocalStealthPalette.current
     val mockManager = remember { MockInterviewManager() }
+    var isToolsSheetOpen by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.currentTurns.size) {
         if (uiState.currentTurns.isNotEmpty()) {
@@ -211,18 +214,10 @@ fun StealthScreen(
             // Minimal AMOLED Top Status Bar
             TopStatusBar(
                 uiState = uiState,
-                onToggleRomanian = onToggleRomanian,
-                onCycleEngine = onCycleEngine,
-                onCycleSttLanguage = onCycleSttLanguage,
-                onToggleWhisper = onToggleWhisper,
-                onToggleOverlay = onToggleOverlay,
-                onCycleTheme = onCycleTheme,
-                onToggleCalculator = onToggleCalculator,
-                onToggleCarrierProfile = onToggleCarrierProfile,
-                onToggleMockSimulator = onToggleMockSimulator
+                onOpenTools = { isToolsSheetOpen = true }
             )
 
-            // Collapsible Freight Math Bar
+            // Collapsible Freight Math Bar (if opened in settings)
             if (uiState.isCalculatorVisible) {
                 FreightMathBar(
                     uiState = uiState,
@@ -231,11 +226,6 @@ fun StealthScreen(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 )
             }
-
-            // Quick freight scenario tester chips
-            QuickScenarioSelector(
-                onScenarioSelected = onScenarioSelected
-            )
 
             // Error banner if any
             if (uiState.errorMessage != null) {
@@ -266,7 +256,7 @@ fun StealthScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = if (uiState.isListening) "LISTENING FOR INTERVIEWER..." else "READY • TAP MIC OR BENCH",
+                            text = if (uiState.isListening) "LISTENING FOR INTERVIEWER..." else "READY • TAP MIC TO START",
                             color = palette.textMetadata,
                             fontSize = 11.sp,
                             letterSpacing = 1.sp
@@ -293,9 +283,29 @@ fun StealthScreen(
                 uiState = uiState,
                 onToggleListening = onToggleListening,
                 onClearHistory = onClearHistory,
-                onToggleAudioSource = onToggleAudioSource,
-                onRunTestBench = onRunTestBench,
-                onExportTranscript = onExportTranscript
+                onExportTranscript = onExportTranscript,
+                onOpenTools = { isToolsSheetOpen = true }
+            )
+        }
+
+        // Tools & Configuration Bottom Sheet (Clean 2026 Drawer)
+        if (isToolsSheetOpen) {
+            ToolsBottomSheet(
+                uiState = uiState,
+                onDismiss = { isToolsSheetOpen = false },
+                onToggleRomanian = onToggleRomanian,
+                onCycleEngine = onCycleEngine,
+                onCycleSttLanguage = onCycleSttLanguage,
+                onToggleWhisper = onToggleWhisper,
+                onToggleOverlay = onToggleOverlay,
+                onCycleTheme = onCycleTheme,
+                onToggleCalculator = onToggleCalculator,
+                onOpenCarrierProfile = onToggleCarrierProfile,
+                onOpenMockSimulator = onToggleMockSimulator,
+                onScenarioSelected = { prompt ->
+                    isToolsSheetOpen = false
+                    onScenarioSelected(prompt)
+                }
             )
         }
 

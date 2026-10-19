@@ -24,6 +24,7 @@ import com.copilot.stealth.engine.llm.LocalLlmEngine
 import com.copilot.stealth.engine.stt.AndroidOnDeviceSpeechToText
 import com.copilot.stealth.engine.stt.SherpaSpeechToText
 import com.copilot.stealth.service.StealthOverlayService
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -78,21 +79,16 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
         }
 
         vadDetector.onVADProbabilityChanged = { prob, rms ->
-            _uiState.update { it.copy(speechProbability = prob, audioRmsLevel = rms) }
+            val curProb = _uiState.value.speechProbability
+            if (kotlin.math.abs(prob - curProb) > 0.08f || (prob > 0.45f != curProb > 0.45f)) {
+                _uiState.update { it.copy(speechProbability = prob, audioRmsLevel = rms) }
+            }
         }
     }
 
     private fun setupTranscriptCollector() {
         viewModelScope.launch {
             sttEngine.transcriptFlow.collect { transcript ->
-                if (transcript.isNotBlank() && _uiState.value.isListening) {
-                    lastSpeechTimestamp = System.currentTimeMillis()
-                    executeInference(transcript)
-                }
-            }
-        }
-        viewModelScope.launch {
-            nativeStt.transcriptFlow.collect { transcript ->
                 if (transcript.isNotBlank() && _uiState.value.isListening) {
                     lastSpeechTimestamp = System.currentTimeMillis()
                     executeInference(transcript)
@@ -173,12 +169,15 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
         lastSpeechTimestamp = System.currentTimeMillis()
 
         _uiState.update { it.copy(isListening = true, errorMessage = null) }
+        com.copilot.stealth.widget.StealthLockScreenWidget.updateAll(
+            context = getApplication(),
+            isListening = true,
+            isBtConnected = _uiState.value.isBluetoothHeadsetConnected
+        )
 
         val source = _uiState.value.audioInputSource
         if (source == AudioInputSource.MICROPHONE || source == AudioInputSource.SYSTEM_CALL) {
-            nativeStt.startListening(_uiState.value.sttLanguageMode)
-            sttEngine.startLiveStream {}
-            audioCaptureJob = viewModelScope.launch {
+            audioCaptureJob = viewModelScope.launch(Dispatchers.Default) {
                 try {
                     audioRecorder.start(this, inputSource = source)
                     audioRecorder.audioFlow.collect { frame ->
@@ -189,7 +188,7 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
                 }
             }
         } else {
-            audioCaptureJob = viewModelScope.launch {
+            audioCaptureJob = viewModelScope.launch(Dispatchers.Default) {
                 testBench.startSyntheticTestPattern(this)
                 testBench.pcmFlow.collect { frame ->
                     vadDetector.processFrame(frame)
@@ -208,6 +207,11 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
         audioPrompter.stop()
         vadDetector.reset()
         _uiState.update { it.copy(isListening = false, isProcessing = false) }
+        com.copilot.stealth.widget.StealthLockScreenWidget.updateAll(
+            context = getApplication(),
+            isListening = false,
+            isBtConnected = _uiState.value.isBluetoothHeadsetConnected
+        )
     }
 
     private fun toggleRomanian() {
@@ -347,6 +351,15 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
 
             hapticHelper.pulseAnswerReady()
             StealthOverlayService.updateHudText(getApplication(), turn.answerEn)
+            com.copilot.stealth.widget.StealthLockScreenWidget.updateAll(
+                context = getApplication(),
+                isListening = _uiState.value.isListening,
+                category = turn.matchedCategory ?: "DISPATCH INTENT",
+                answerEn = turn.answerEn,
+                answerRo = turn.answerRo,
+                latencyMs = turn.latencyMs,
+                isBtConnected = _uiState.value.isBluetoothHeadsetConnected
+            )
 
             // Whisper key answer into earpiece if enabled
             if (_uiState.value.isWhisperEnabled) {

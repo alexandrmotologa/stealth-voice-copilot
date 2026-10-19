@@ -25,12 +25,20 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
     private var speechRecognizer: SpeechRecognizer? = null
     private val mainHandler = Handler(Looper.getMainLooper())
     private var isListening = false
+    private var consecutiveErrors = 0
+    private var retryRunnable: Runnable? = null
 
     var onSpeechStatusChanged: ((isRecognizing: Boolean) -> Unit)? = null
 
     fun startListening(languageMode: com.copilot.stealth.data.models.SttLanguageMode = com.copilot.stealth.data.models.SttLanguageMode.ENGLISH) {
         mainHandler.post {
             try {
+                if (!SpeechRecognizer.isRecognitionAvailable(context)) {
+                    isListening = false
+                    onSpeechStatusChanged?.invoke(false)
+                    return@post
+                }
+
                 if (speechRecognizer == null) {
                     speechRecognizer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
                         SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
@@ -61,6 +69,7 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
                     }
                 }
 
+                cancelPendingRetry()
                 isListening = true
                 speechRecognizer?.startListening(intent)
                 onSpeechStatusChanged?.invoke(true)
@@ -73,7 +82,9 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
 
     fun stopListening() {
         mainHandler.post {
+            cancelPendingRetry()
             isListening = false
+            consecutiveErrors = 0
             onSpeechStatusChanged?.invoke(false)
             try {
                 speechRecognizer?.stopListening()
@@ -83,7 +94,9 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
 
     fun destroy() {
         mainHandler.post {
+            cancelPendingRetry()
             isListening = false
+            consecutiveErrors = 0
             onSpeechStatusChanged?.invoke(false)
             try {
                 speechRecognizer?.destroy()
@@ -92,7 +105,13 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
         }
     }
 
+    private fun cancelPendingRetry() {
+        retryRunnable?.let { mainHandler.removeCallbacks(it) }
+        retryRunnable = null
+    }
+
     override fun onResults(results: Bundle?) {
+        consecutiveErrors = 0
         val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
         val bestText = matches?.firstOrNull { it.isNotBlank() }
         if (!bestText.isNullOrBlank()) {
@@ -100,11 +119,12 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
             _transcriptFlow.tryEmit(normalized)
         }
 
-        // Restart listening loop if continuous ambient monitoring is still enabled
         if (isListening) {
-            mainHandler.postDelayed({
+            cancelPendingRetry()
+            retryRunnable = Runnable {
                 if (isListening) startListening()
-            }, 100)
+            }
+            mainHandler.postDelayed(retryRunnable!!, 300L)
         }
     }
 
@@ -118,17 +138,30 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
     }
 
     override fun onError(error: Int) {
-        // Continuous ambient restart on silence timeout or no match
+        consecutiveErrors++
+        if (consecutiveErrors >= 3 ||
+            error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ||
+            error == SpeechRecognizer.ERROR_CLIENT ||
+            error == SpeechRecognizer.ERROR_AUDIO
+        ) {
+            isListening = false
+            cancelPendingRetry()
+            onSpeechStatusChanged?.invoke(false)
+            return
+        }
+
         if (isListening) {
+            cancelPendingRetry()
             val retryDelay = when (error) {
                 SpeechRecognizer.ERROR_NO_MATCH,
-                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 150L
-                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> 400L
+                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 300L
+                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> 600L
                 else -> 1000L
             }
-            mainHandler.postDelayed({
+            retryRunnable = Runnable {
                 if (isListening) startListening()
-            }, retryDelay)
+            }
+            mainHandler.postDelayed(retryRunnable!!, retryDelay)
         }
     }
 

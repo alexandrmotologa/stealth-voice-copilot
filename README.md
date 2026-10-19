@@ -1,10 +1,12 @@
 <div align="center">
 
+<img src="docs/images/logo.png" width="140" alt="Stealth Voice Copilot Logo" />
+
 # Stealth Voice Copilot
 
 **Offline on-device Android assistant for US freight dispatching, logistics, and billing interviews.**
 
-[![Android](https://img.shields.io/badge/Platform-Android_14+-3DDC84?logo=android&logoColor=white)](https://android.com)
+[![Android](https://img.shields.io/badge/Platform-Android_11+-3DDC84?logo=android&logoColor=white)](https://android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.0-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Compose](https://img.shields.io/badge/Jetpack_Compose-AMOLED_True_Black-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
 [![ONNX](https://img.shields.io/badge/ONNX_Runtime-Silero_VAD-005CED?logo=onnx&logoColor=white)](https://onnxruntime.ai)
@@ -15,8 +17,9 @@
 <img src="docs/images/stealth_voice_copilot_demo.gif" width="420" alt="Stealth Voice Copilot Demo" />
 
 <p align="center">
-  <img src="docs/images/live_evaluated.png" width="48%" alt="Live On-Device Evaluation" />
-  <img src="docs/images/live_profile_sheet.png" width="48%" alt="Carrier Profile Grounding Sheet" />
+  <img src="docs/images/live_clean_dialogue.png" width="31%" alt="Live Bilingual Dialogue" />
+  <img src="docs/images/live_tools_drawer.png" width="31%" alt="Stealth Settings and Tools Drawer" />
+  <img src="docs/images/live_clean_listening.png" width="31%" alt="AMOLED Standby and Listening HUD" />
 </p>
 
 </div>

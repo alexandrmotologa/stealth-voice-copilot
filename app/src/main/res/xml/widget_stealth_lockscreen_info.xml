@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_description"
+    android:initialKeyguardLayout="@layout/widget_stealth_lockscreen"
+    android:initialLayout="@layout/widget_stealth_lockscreen"
+    android:minHeight="110dp"
+    android:minWidth="250dp"
+    android:previewImage="@drawable/ic_launcher_foreground"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellHeight="2"
+    android:targetCellWidth="4"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="keyguard|home_screen"
+    android:widgetFeatures="reconfigurable|configuration_optional" />
