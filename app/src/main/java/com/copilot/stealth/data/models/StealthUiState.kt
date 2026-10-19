@@ -18,6 +18,8 @@ data class StealthUiState(
     val isCalculatorVisible: Boolean = false,
     val isCarrierProfileOpen: Boolean = false,
     val isMockSimulatorOpen: Boolean = false,
+    val livePartialTranscript: String? = null,
+    val livePartialTranslation: String? = null,
     val currentTurns: List<CopilotTurn> = emptyList(),
     val errorMessage: String? = null,
     val batterySaverMode: Boolean = false,

@@ -48,6 +48,31 @@ class FreightKnowledgeEngine(
                 answerEn = "We factor with ${carrierProfile.factoringCompany}. We can send our NOA and W-9 immediately with the carrier packet.",
                 answerRo = "Facturam prin ${carrierProfile.factoringCompany}. Trimitem NOA si formularul W-9 imediat in pachetul de setup.",
                 questionRo = "Cu ce companie de factoring colaborati pentru plata?"
+            ),
+            FreightScenario(
+                category = "Interview Greeting & Icebreaker",
+                triggerKeywords = listOf("hi", "hello", "how are you", "good morning", "good afternoon", "how are things", "can you hear me", "hey there", "how are you doing"),
+                sampleQuestions = listOf(
+                    "Hi, how are you?",
+                    "Hello, how are you doing today?",
+                    "Good morning, can you hear me ok?",
+                    "Hi, thanks for joining the call."
+                ),
+                answerEn = "Hello! I am doing great, thank you. I am ready to discuss our freight operations and dispatching experience. How are you doing today?",
+                answerRo = "Salut! Sunt foarte bine, multumesc. Sunt pregatit sa discutam despre operatiunile noastre de dispatch si logistica. Dumneavoastra ce mai faceti?",
+                questionRo = "Buna, ce mai faci? / Salutare, cum merg lucrurile?"
+            ),
+            FreightScenario(
+                category = "Dispatcher Background & Introduction",
+                triggerKeywords = listOf("tell me about yourself", "your background", "experience as dispatcher", "walk me through your resume", "who are you", "how long have you been dispatching"),
+                sampleQuestions = listOf(
+                    "Can you tell me about yourself?",
+                    "Walk me through your freight dispatching background.",
+                    "How long have you been dispatching freight?"
+                ),
+                answerEn = "I manage dry van and reefer freight across key US lanes, specializing in DAT and Truckstop load booking, rate negotiation, driver HOS tracking on ELD systems, and prompt detention recovery.",
+                answerRo = "Gestionez incarcaturi dry van si reefer pe rutele principale SUA, specializandu-ma in rezervare pe DAT/Truckstop, negociere tarife, urmarire HOS pe ELD si recuperare detentie.",
+                questionRo = "Povesteste-mi despre tine si experienta ta in dispatch."
             )
         )
         carrierScenarios + glossary
@@ -181,10 +206,70 @@ class FreightKnowledgeEngine(
         val stopWords = setOf(
             "the", "a", "an", "is", "are", "do", "you", "what", "how", "when",
             "where", "why", "if", "and", "or", "in", "on", "at", "to", "for",
-            "with", "my", "your", "our", "their", "of", "it", "this", "that"
         )
         return text.split(Regex("[^a-zA-Z0-9]+"))
             .filter { it.isNotBlank() && !stopWords.contains(it) && it.length > 1 }
             .toSet()
+    }
+
+    companion object {
+        fun quickTranslate(text: String): String {
+            val lower = text.trim().lowercase()
+
+            if (lower.startsWith("hi") || lower.startsWith("hello") || lower.startsWith("hey")) {
+                if (lower.contains("how are you")) return "Buna, ce mai faci?"
+                if (lower.contains("can you hear me")) return "Salut, ma auzi bine?"
+                return "Buna ziua / Salut"
+            }
+            if (lower.contains("how are you")) return "Ce mai faci? / Cum merg lucrurile?"
+            if (lower.contains("good morning")) return "Buna dimineata"
+            if (lower.contains("good afternoon")) return "Buna ziua"
+            if (lower.contains("tell me about yourself")) return "Povesteste-mi despre tine si experienta ta."
+            if (lower.contains("what is your mc") || lower.contains("mc number")) return "Care este numarul tau de MC si compania?"
+            if (lower.contains("what equipment") || lower.contains("trucks")) return "Ce tip de camioane/echipament aveti in flota?"
+            if (lower.contains("rate con") || lower.contains("rate confirmation")) return "Ce verifici pe o confirmare de tarif inainte de semnare?"
+            if (lower.contains("detention")) return "Care este politica ta pentru plata orelor de detentie?"
+            if (lower.contains("tonu")) return "Cat percepeti pentru anularea comenzii (TONU)?"
+            if (lower.contains("layover")) return "Care este tariful de layover daca soferul ramane peste noapte?"
+            if (lower.contains("lumper")) return "Cum procedati daca depozitul cere plata cash pentru lumper?"
+            if (lower.contains("bol") || lower.contains("bill of lading")) return "Ce face soferul daca marfa nu corespunde cu BOL-ul?"
+            if (lower.contains("hos") || lower.contains("eld") || lower.contains("hours of service")) return "Cum planifici orele de condus (HOS/ELD)?"
+            if (lower.contains("where are you located")) return "Unde aveti sediul principal?"
+            if (lower.contains("who do you factor with") || lower.contains("factoring")) return "Cu ce companie de factoring colaborati?"
+            if (lower.contains("deadhead")) return "Cate mile goale (deadhead) acceptati?"
+            if (lower.contains("certificate of insurance") || lower.contains("coi")) return "Aveti certificatul de asigurare (COI) pregatit?"
+
+            val dictionary = mapOf(
+                "what" to "ce",
+                "is" to "este",
+                "are" to "sunt",
+                "you" to "tu / voi",
+                "your" to "al tau / a voastra",
+                "rate" to "tarif",
+                "load" to "incarcatura",
+                "truck" to "camion",
+                "driver" to "sofer",
+                "broker" to "broker",
+                "shipper" to "expeditor",
+                "receiver" to "destinatar",
+                "pickup" to "incarcare",
+                "delivery" to "livrare",
+                "miles" to "mile",
+                "time" to "timp",
+                "money" to "bani",
+                "delay" to "intarziere",
+                "policy" to "politica",
+                "insurance" to "asigurare",
+                "available" to "disponibil",
+                "today" to "astazi",
+                "tomorrow" to "maine",
+                "thanks" to "multumesc",
+                "thank" to "multumesc"
+            )
+
+            val words = lower.split(Regex("\\s+"))
+            val translatedWords = words.map { dictionary[it] ?: it }
+            return translatedWords.joinToString(" ")
+        }
     }
 }

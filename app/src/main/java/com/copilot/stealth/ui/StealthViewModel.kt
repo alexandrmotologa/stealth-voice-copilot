@@ -23,7 +23,9 @@ import com.copilot.stealth.engine.calculator.FreightCalculatorEngine
 import com.copilot.stealth.engine.llm.LocalLlmEngine
 import com.copilot.stealth.engine.stt.AndroidOnDeviceSpeechToText
 import com.copilot.stealth.engine.stt.SherpaSpeechToText
+import com.copilot.stealth.data.repository.FreightKnowledgeEngine
 import com.copilot.stealth.service.StealthOverlayService
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -87,6 +89,51 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private fun setupTranscriptCollector() {
+        // Real-time partial results as interlocutor speaks (instant feedback on screen)
+        viewModelScope.launch {
+            nativeStt.partialTranscriptFlow.collect { partial ->
+                if (_uiState.value.isListening && partial.isNotBlank()) {
+                    lastSpeechTimestamp = System.currentTimeMillis()
+                    val ro = if (_uiState.value.isRomanianEnabled) {
+                        FreightKnowledgeEngine.quickTranslate(partial)
+                    } else null
+                    _uiState.update {
+                        it.copy(
+                            livePartialTranscript = partial,
+                            livePartialTranslation = ro,
+                            speechProbability = 0.95f
+                        )
+                    }
+                }
+            }
+        }
+
+        // Final utterance when interlocutor finishes question or pauses
+        viewModelScope.launch {
+            nativeStt.finalTranscriptFlow.collect { transcript ->
+                if (_uiState.value.isListening && transcript.isNotBlank()) {
+                    lastSpeechTimestamp = System.currentTimeMillis()
+                    _uiState.update {
+                        it.copy(
+                            livePartialTranscript = null,
+                            livePartialTranslation = null
+                        )
+                    }
+                    executeInference(transcript)
+                }
+            }
+        }
+
+        // Live RMS audio levels for glowing mic
+        viewModelScope.launch {
+            nativeStt.rmsFlow.collect { rms ->
+                if (_uiState.value.isListening) {
+                    _uiState.update { it.copy(audioRmsLevel = rms) }
+                }
+            }
+        }
+
+        // Fallback synthetic test bench collector
         viewModelScope.launch {
             sttEngine.transcriptFlow.collect { transcript ->
                 if (transcript.isNotBlank() && _uiState.value.isListening) {
@@ -168,7 +215,14 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
         vadDetector.reset()
         lastSpeechTimestamp = System.currentTimeMillis()
 
-        _uiState.update { it.copy(isListening = true, errorMessage = null) }
+        _uiState.update {
+            it.copy(
+                isListening = true,
+                errorMessage = null,
+                livePartialTranscript = null,
+                livePartialTranslation = null
+            )
+        }
         com.copilot.stealth.widget.StealthLockScreenWidget.updateAll(
             context = getApplication(),
             isListening = true,
@@ -176,37 +230,61 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
         )
 
         val source = _uiState.value.audioInputSource
-        if (source == AudioInputSource.MICROPHONE || source == AudioInputSource.SYSTEM_CALL) {
+        if (source == AudioInputSource.MICROPHONE) {
+            // Live on-device Google SpeechRecognizer handles mic stream directly
+            nativeStt.startListening(_uiState.value.sttLanguageMode)
+        } else if (source == AudioInputSource.SYSTEM_CALL) {
             audioCaptureJob = viewModelScope.launch(Dispatchers.Default) {
                 try {
                     audioRecorder.start(this, inputSource = source)
                     audioRecorder.audioFlow.collect { frame ->
                         vadDetector.processFrame(frame)
                     }
+                } catch (e: CancellationException) {
+                    // Clean coroutine cancellation on stop / toggle listening - do NOT emit error
                 } catch (e: Exception) {
                     processIntent(StealthUiIntent.OnError(e.localizedMessage ?: "Audio record error"))
                 }
             }
         } else {
             audioCaptureJob = viewModelScope.launch(Dispatchers.Default) {
-                testBench.startSyntheticTestPattern(this)
-                testBench.pcmFlow.collect { frame ->
-                    vadDetector.processFrame(frame)
+                try {
+                    testBench.startSyntheticTestPattern(this)
+                    testBench.pcmFlow.collect { frame ->
+                        vadDetector.processFrame(frame)
+                    }
+                } catch (e: CancellationException) {
+                    // Clean coroutine cancellation - do NOT emit error
+                } catch (e: Exception) {
+                    processIntent(StealthUiIntent.OnError(e.localizedMessage ?: "Audio record error"))
                 }
             }
         }
     }
 
     private fun stopAudioStream() {
-        audioCaptureJob?.cancel()
+        try {
+            audioCaptureJob?.cancel()
+        } catch (_: Exception) {}
         audioCaptureJob = null
+
         audioRecorder.stop()
         testBench.stop()
         nativeStt.stopListening()
         sttEngine.stopLiveStream()
         audioPrompter.stop()
         vadDetector.reset()
-        _uiState.update { it.copy(isListening = false, isProcessing = false) }
+
+        _uiState.update {
+            it.copy(
+                isListening = false,
+                isProcessing = false,
+                livePartialTranscript = null,
+                livePartialTranslation = null,
+                errorMessage = null
+            )
+        }
+
         com.copilot.stealth.widget.StealthLockScreenWidget.updateAll(
             context = getApplication(),
             isListening = false,

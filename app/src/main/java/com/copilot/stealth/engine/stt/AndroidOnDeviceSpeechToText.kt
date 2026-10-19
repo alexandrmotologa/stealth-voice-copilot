@@ -19,18 +19,30 @@ import kotlinx.coroutines.flow.asSharedFlow
  */
 class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionListener {
 
-    private val _transcriptFlow = MutableSharedFlow<String>(extraBufferCapacity = 16)
-    val transcriptFlow: SharedFlow<String> = _transcriptFlow.asSharedFlow()
+    private val _partialTranscriptFlow = MutableSharedFlow<String>(extraBufferCapacity = 32)
+    val partialTranscriptFlow: SharedFlow<String> = _partialTranscriptFlow.asSharedFlow()
+
+    private val _finalTranscriptFlow = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    val finalTranscriptFlow: SharedFlow<String> = _finalTranscriptFlow.asSharedFlow()
+
+    private val _rmsFlow = MutableSharedFlow<Float>(extraBufferCapacity = 16)
+    val rmsFlow: SharedFlow<Float> = _rmsFlow.asSharedFlow()
+
+    // Backwards compatibility transcriptFlow
+    val transcriptFlow: SharedFlow<String> = _finalTranscriptFlow
 
     private var speechRecognizer: SpeechRecognizer? = null
     private val mainHandler = Handler(Looper.getMainLooper())
     private var isListening = false
     private var consecutiveErrors = 0
     private var retryRunnable: Runnable? = null
+    private var currentLanguageMode: com.copilot.stealth.data.models.SttLanguageMode =
+        com.copilot.stealth.data.models.SttLanguageMode.ENGLISH
 
     var onSpeechStatusChanged: ((isRecognizing: Boolean) -> Unit)? = null
 
     fun startListening(languageMode: com.copilot.stealth.data.models.SttLanguageMode = com.copilot.stealth.data.models.SttLanguageMode.ENGLISH) {
+        currentLanguageMode = languageMode
         mainHandler.post {
             try {
                 if (!SpeechRecognizer.isRecognitionAvailable(context)) {
@@ -64,9 +76,7 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
                     }
                     putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                     putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
-                    }
+                    putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
                 }
 
                 cancelPendingRetry()
@@ -88,6 +98,7 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
             onSpeechStatusChanged?.invoke(false)
             try {
                 speechRecognizer?.stopListening()
+                speechRecognizer?.cancel()
             } catch (_: Exception) {}
         }
     }
@@ -116,15 +127,15 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
         val bestText = matches?.firstOrNull { it.isNotBlank() }
         if (!bestText.isNullOrBlank()) {
             val normalized = FreightLexiconNormalizer.normalize(bestText)
-            _transcriptFlow.tryEmit(normalized)
+            _finalTranscriptFlow.tryEmit(normalized)
         }
 
         if (isListening) {
             cancelPendingRetry()
             retryRunnable = Runnable {
-                if (isListening) startListening()
+                if (isListening) startListening(currentLanguageMode)
             }
-            mainHandler.postDelayed(retryRunnable!!, 300L)
+            mainHandler.postDelayed(retryRunnable!!, 150L)
         }
     }
 
@@ -133,41 +144,57 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
         val partial = matches?.firstOrNull { it.isNotBlank() }
         if (!partial.isNullOrBlank()) {
             val normalized = FreightLexiconNormalizer.normalize(partial)
-            _transcriptFlow.tryEmit(normalized)
+            _partialTranscriptFlow.tryEmit(normalized)
         }
     }
 
     override fun onError(error: Int) {
-        consecutiveErrors++
-        if (consecutiveErrors >= 3 ||
-            error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ||
-            error == SpeechRecognizer.ERROR_CLIENT ||
-            error == SpeechRecognizer.ERROR_AUDIO
-        ) {
+        if (!isListening) return
+
+        if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
             isListening = false
             cancelPendingRetry()
             onSpeechStatusChanged?.invoke(false)
             return
         }
 
-        if (isListening) {
-            cancelPendingRetry()
-            val retryDelay = when (error) {
-                SpeechRecognizer.ERROR_NO_MATCH,
-                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 300L
-                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> 600L
-                else -> 1000L
-            }
-            retryRunnable = Runnable {
-                if (isListening) startListening()
-            }
-            mainHandler.postDelayed(retryRunnable!!, retryDelay)
+        consecutiveErrors++
+        if (consecutiveErrors >= 6) {
+            try {
+                speechRecognizer?.destroy()
+            } catch (_: Exception) {}
+            speechRecognizer = null
+            consecutiveErrors = 0
         }
+
+        val retryDelay = when (error) {
+            SpeechRecognizer.ERROR_NO_MATCH,
+            SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 100L
+            SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> 350L
+            else -> 500L
+        }
+
+        cancelPendingRetry()
+        retryRunnable = Runnable {
+            if (isListening) startListening(currentLanguageMode)
+        }
+        mainHandler.postDelayed(retryRunnable!!, retryDelay)
     }
 
-    override fun onReadyForSpeech(params: Bundle?) {}
-    override fun onBeginningOfSpeech() {}
-    override fun onRmsChanged(rmsdB: Float) {}
+    override fun onReadyForSpeech(params: Bundle?) {
+        consecutiveErrors = 0
+        onSpeechStatusChanged?.invoke(true)
+    }
+
+    override fun onBeginningOfSpeech() {
+        consecutiveErrors = 0
+    }
+
+    override fun onRmsChanged(rmsdB: Float) {
+        val normalized = ((rmsdB + 2.0f) / 12.0f).coerceIn(0.0f, 1.0f)
+        _rmsFlow.tryEmit(normalized)
+    }
+
     override fun onBufferReceived(buffer: ByteArray?) {}
     override fun onEndOfSpeech() {}
     override fun onEvent(eventType: Int, params: Bundle?) {}
