@@ -48,11 +48,13 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.copilot.stealth.data.models.AudioInputSource
 import com.copilot.stealth.data.models.CarrierProfile
+import com.copilot.stealth.data.models.EngineType
 import com.copilot.stealth.data.models.StealthUiIntent
 import com.copilot.stealth.data.models.StealthUiState
 import com.copilot.stealth.engine.mock.MockInterviewManager
 import com.copilot.stealth.ui.components.CarrierProfileSheet
 import com.copilot.stealth.ui.components.ControlsRow
+import com.copilot.stealth.ui.components.EngineSelectionDialog
 import com.copilot.stealth.ui.components.FreightMathBar
 import com.copilot.stealth.ui.components.MockInterviewSheet
 import com.copilot.stealth.ui.components.ToolsBottomSheet
@@ -120,7 +122,11 @@ class StealthActivity : ComponentActivity() {
                         viewModel.processIntent(StealthUiIntent.SetAudioSource(nextSource))
                     },
                     onRunTestBench = { viewModel.runSyntheticTestBenchBurst() },
-                    onScenarioSelected = { prompt -> viewModel.handleManualQuery(prompt) }
+                    onScenarioSelected = { prompt -> viewModel.handleManualQuery(prompt) },
+                    onOpenEngineSelection = { viewModel.processIntent(StealthUiIntent.ToggleEngineSelection) },
+                    onSelectEngine = { type -> viewModel.processIntent(StealthUiIntent.SelectEngineType(type)) },
+                    onSelectLocalModel = { name -> viewModel.processIntent(StealthUiIntent.SelectLocalModel(name)) },
+                    onTriggerDownload = { id -> viewModel.processIntent(StealthUiIntent.TriggerModelDownload(id)) }
                 )
             }
         }
@@ -199,7 +205,11 @@ fun StealthScreen(
     onSaveCarrierProfile: (CarrierProfile) -> Unit,
     onToggleAudioSource: () -> Unit,
     onRunTestBench: () -> Unit,
-    onScenarioSelected: (String) -> Unit
+    onScenarioSelected: (String) -> Unit,
+    onOpenEngineSelection: () -> Unit,
+    onSelectEngine: (EngineType) -> Unit,
+    onSelectLocalModel: (String) -> Unit,
+    onTriggerDownload: (String) -> Unit
 ) {
     val listState = rememberLazyListState()
     val palette = LocalStealthPalette.current
@@ -223,7 +233,8 @@ fun StealthScreen(
             // Minimal AMOLED Top Status Bar
             TopStatusBar(
                 uiState = uiState,
-                onOpenTools = { isToolsSheetOpen = true }
+                onOpenTools = { isToolsSheetOpen = true },
+                onOpenEngineSelection = onOpenEngineSelection
             )
 
             // Collapsible Freight Math Bar (if opened in settings)
@@ -323,10 +334,22 @@ fun StealthScreen(
                 onToggleCalculator = onToggleCalculator,
                 onOpenCarrierProfile = onToggleCarrierProfile,
                 onOpenMockSimulator = onToggleMockSimulator,
+                onOpenEngineSelection = onOpenEngineSelection,
                 onScenarioSelected = { prompt ->
                     isToolsSheetOpen = false
                     onScenarioSelected(prompt)
                 }
+            )
+        }
+
+        // AI Engine Selection & Setup Dialog
+        if (uiState.isEngineSelectionOpen) {
+            EngineSelectionDialog(
+                uiState = uiState,
+                onSelectEngine = onSelectEngine,
+                onSelectLocalModel = onSelectLocalModel,
+                onTriggerDownload = onTriggerDownload,
+                onDismiss = onOpenEngineSelection
             )
         }
 

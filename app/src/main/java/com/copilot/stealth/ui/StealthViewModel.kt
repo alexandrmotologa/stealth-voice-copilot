@@ -57,16 +57,37 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
     private val bluetoothMonitor = BluetoothAudioMonitor(application)
     private val exportManager = SessionExportManager(application)
     private val audioPrompter = DiscreetAudioPrompter(application, bluetoothMonitor)
+    private val downloadManager = com.copilot.stealth.engine.llm.ModelDownloadManager(application)
 
     private var audioCaptureJob: Job? = null
     private var watchdogJob: Job? = null
     private var lastSpeechTimestamp = System.currentTimeMillis()
 
     init {
+        checkModelAvailability()
+        val isFirstLaunch = !carrierProfileRepository.isInitialSetupCompleted()
+        _uiState.update {
+            it.copy(
+                activeEngineType = carrierProfileRepository.getEngineType(),
+                preferredLocalModel = carrierProfileRepository.getPreferredLocalModel(),
+                isEngineSelectionOpen = isFirstLaunch
+            )
+        }
         setupVadCallbacks()
         setupTranscriptCollector()
         setupBluetoothCollector()
         startAutoStandbyWatchdog()
+    }
+
+    private fun checkModelAvailability() {
+        val llamaPresent = downloadManager.isModelDownloaded(com.copilot.stealth.engine.llm.ModelDownloadManager.LLAMA_3_2_1B)
+        val gemmaPresent = downloadManager.isModelDownloaded(com.copilot.stealth.engine.llm.ModelDownloadManager.GEMMA_2_2B)
+        _uiState.update {
+            it.copy(
+                isLlamaDownloaded = llamaPresent,
+                isGemmaDownloaded = gemmaPresent
+            )
+        }
     }
 
     private fun setupVadCallbacks() {
@@ -167,6 +188,30 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
             is StealthUiIntent.ToggleCalculator -> toggleCalculator()
             is StealthUiIntent.ToggleCarrierProfileEditor -> toggleCarrierProfileEditor()
             is StealthUiIntent.ToggleMockSimulator -> toggleMockSimulator()
+            is StealthUiIntent.ToggleEngineSelection -> {
+                checkModelAvailability()
+                _uiState.update { it.copy(isEngineSelectionOpen = !it.isEngineSelectionOpen) }
+            }
+            is StealthUiIntent.SelectEngineType -> {
+                carrierProfileRepository.saveEngineType(intent.engineType)
+                carrierProfileRepository.setInitialSetupCompleted(true)
+                llmEngine.setEngineType(intent.engineType)
+                _uiState.update { it.copy(activeEngineType = intent.engineType) }
+            }
+            is StealthUiIntent.SelectLocalModel -> {
+                carrierProfileRepository.savePreferredLocalModel(intent.modelName)
+                carrierProfileRepository.setInitialSetupCompleted(true)
+                llmEngine.setPreferredLocalModel(intent.modelName)
+                _uiState.update { it.copy(preferredLocalModel = intent.modelName) }
+            }
+            is StealthUiIntent.TriggerModelDownload -> {
+                val spec = if (intent.modelId.contains("gemma")) {
+                    com.copilot.stealth.engine.llm.ModelDownloadManager.GEMMA_2_2B
+                } else {
+                    com.copilot.stealth.engine.llm.ModelDownloadManager.LLAMA_3_2_1B
+                }
+                downloadManager.startDownload(spec)
+            }
             is StealthUiIntent.SaveCarrierProfile -> saveCarrierProfile(intent.profile)
             is StealthUiIntent.SetAudioSource -> setAudioSource(intent.source)
             is StealthUiIntent.SetBluetoothConnected -> {
@@ -326,10 +371,11 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
 
     private fun cycleEngineType() {
         val nextEngine = when (_uiState.value.activeEngineType) {
-            EngineType.HYBRID -> EngineType.DETERMINISTIC_EXPERT
-            EngineType.DETERMINISTIC_EXPERT -> EngineType.LOCAL_NEURAL
+            EngineType.HYBRID -> EngineType.LOCAL_NEURAL
             EngineType.LOCAL_NEURAL -> EngineType.HYBRID
+            EngineType.DETERMINISTIC_EXPERT -> EngineType.HYBRID
         }
+        carrierProfileRepository.saveEngineType(nextEngine)
         llmEngine.setEngineType(nextEngine)
         _uiState.update { it.copy(activeEngineType = nextEngine) }
     }

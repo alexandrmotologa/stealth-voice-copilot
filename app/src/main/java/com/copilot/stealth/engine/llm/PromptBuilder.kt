@@ -3,43 +3,30 @@ package com.copilot.stealth.engine.llm
 import com.copilot.stealth.data.models.CopilotTurn
 
 /**
- * Constructs optimized system and user prompts with token conservation based on language toggles.
+ * Constructs prompt templates for on-device and cloud LLM execution,
+ * providing direct, natural spoken answers on any topic.
  */
 object PromptBuilder {
 
     fun buildSystemPrompt(isRomanianEnabled: Boolean): String {
-        val basePrompt = """
-            You are an offline interview assistant for a US Freight Dispatcher and Billing Clerk position.
-            Domain terms: Load boards (DAT One, Truckstop), Rate Confirmation (Rate Con), Bill of Lading (BOL), Proof of Delivery (POD), Factoring (Notice of Assignment), Detention ($50/hr after 2h standard), Layover ($150-$300/day), TONU ($150-$250), Lumper receipts, HOS (Hours of Service), ELD (KeepTruckin/Motive).
-        """.trimIndent()
-
         return if (isRomanianEnabled) {
             """
-            $basePrompt
-            
+            You are a discreet, intelligent real-time voice assistant helping in professional conversations and interviews.
             Rules:
-            1. Provide a direct, professional 1 to 2 sentence English response that the candidate can read aloud immediately.
-            2. Include the Romanian translation of the question and a brief Romanian explanation of the answer.
-            3. Strict JSON format:
-            {
-              "transcript_ro": "<Romanian translation of question>",
-              "answer_en": "<1-2 concise professional sentences in English>",
-              "answer_ro": "<brief Romanian explanation of answer>"
-            }
+            1. Provide a direct, natural, confident spoken response in 1 or 2 concise English sentences that the user can read aloud immediately.
+            2. Provide the Romanian translation of the question and a brief Romanian translation of the answer.
+            3. Respond to ANY topic naturally without predefined constraints (technology, personal background, work opinions, general knowledge, or business).
+            4. Output STRICT JSON only:
+            {"transcript_ro":"<Romanian question translation>","answer_en":"<1-2 concise spoken English sentences>","answer_ro":"<Romanian explanation>"}
             """.trimIndent()
         } else {
             """
-            $basePrompt
-            
+            You are a discreet, intelligent real-time voice assistant helping in professional conversations and interviews.
             Rules:
-            1. Provide a direct, professional 1 to 2 sentence English response that the candidate can read aloud immediately.
-            2. Do NOT generate Romanian text or translations.
-            3. Strict JSON format:
-            {
-              "transcript_ro": null,
-              "answer_en": "<1-2 concise professional sentences in English>",
-              "answer_ro": null
-            }
+            1. Provide a direct, natural, confident spoken response in 1 or 2 concise English sentences that the user can read aloud immediately.
+            2. Respond to ANY topic naturally without predefined constraints.
+            3. Output STRICT JSON only:
+            {"transcript_ro":null,"answer_en":"<1-2 concise spoken English sentences>","answer_ro":null}
             """.trimIndent()
         }
     }
@@ -58,6 +45,18 @@ object PromptBuilder {
             ""
         }
 
-        return "${historyContext}Interviewer: \"$currentQuestion\"\nSettings: [Romanian: $isRomanianEnabled]"
+        val jsonRequirement = if (isRomanianEnabled) {
+            """Respond with JSON format: {"transcript_ro":"...", "answer_en":"...", "answer_ro":"..."}"""
+        } else {
+            """Respond with JSON format: {"transcript_ro":null, "answer_en":"...", "answer_ro":null}"""
+        }
+
+        return """
+            ${buildSystemPrompt(isRomanianEnabled)}
+            
+            ${historyContext}Current Question: $currentQuestion
+            
+            $jsonRequirement
+        """.trimIndent()
     }
 }

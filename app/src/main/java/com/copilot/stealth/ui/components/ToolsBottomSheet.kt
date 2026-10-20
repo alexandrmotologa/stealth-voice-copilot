@@ -62,6 +62,7 @@ fun ToolsBottomSheet(
     onToggleCalculator: () -> Unit,
     onOpenCarrierProfile: () -> Unit,
     onOpenMockSimulator: () -> Unit,
+    onOpenEngineSelection: (() -> Unit)? = null,
     onScenarioSelected: (String) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -187,7 +188,13 @@ fun ToolsBottomSheet(
                     title = engineLabel,
                     subtitle = engineSub,
                     modifier = Modifier.weight(1f),
-                    onClick = onCycleEngine
+                    onClick = {
+                        if (onOpenEngineSelection != null) {
+                            onOpenEngineSelection()
+                        } else {
+                            onCycleEngine()
+                        }
+                    }
                 )
             }
 

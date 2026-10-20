@@ -74,6 +74,24 @@ class LocalModelManager(private val context: Context) {
         return results.distinctBy { it.file.absolutePath }.sortedByDescending { it.sizeBytes }
     }
 
+    fun getLlamaModel(): File? {
+        val models = scanAvailableModels().map { it.file }
+        return models.firstOrNull { it.name.contains("llama", ignoreCase = true) }
+    }
+
+    fun getGemmaModel(): File? {
+        val models = scanAvailableModels().map { it.file }
+        return models.firstOrNull { it.name.contains("gemma", ignoreCase = true) }
+    }
+
+    fun getModelByPreference(preferredName: String): File? {
+        return if (preferredName.contains("gemma", ignoreCase = true)) {
+            getGemmaModel() ?: getLlamaModel() ?: getDefaultModel()
+        } else {
+            getLlamaModel() ?: getGemmaModel() ?: getDefaultModel()
+        }
+    }
+
     /**
      * Returns the primary or default model candidate if present.
      */

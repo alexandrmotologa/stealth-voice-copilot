@@ -4,21 +4,18 @@ import android.content.Context
 import com.copilot.stealth.data.models.CopilotTurn
 import com.copilot.stealth.data.models.EngineType
 import com.copilot.stealth.data.repository.CarrierProfileRepository
-import com.copilot.stealth.data.repository.FreightKnowledgeEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import java.io.File
 
 /**
- * Hybrid inference coordinator managing ultra-fast cloud LLMs (Groq LPU / OpenAI),
- * on-device quantized neural execution via MediaPipe Tasks GenAI, and instant deterministic fallback.
+ * Dual-Engine AI Coordinator managing ultra-fast Groq Cloud AI inference (sub-250ms)
+ * and on-device quantized neural inference (Llama 3.2 1B / Gemma 2 2B) with zero pre-scripted text.
  */
 class LocalLlmEngine(
     private val context: Context,
-    private val carrierProfileRepository: CarrierProfileRepository = CarrierProfileRepository(context),
-    private var knowledgeEngine: FreightKnowledgeEngine = FreightKnowledgeEngine(
-        carrierProfile = carrierProfileRepository.getProfile()
-    )
+    private val carrierProfileRepository: CarrierProfileRepository = CarrierProfileRepository(context)
 ) : AutoCloseable {
 
     private val modelManager = LocalModelManager(context)
@@ -27,7 +24,7 @@ class LocalLlmEngine(
         apiKey = carrierProfileRepository.getGroqApiKey(),
         modelName = carrierProfileRepository.getCloudModel()
     )
-    private var activeEngineType = EngineType.HYBRID
+    private var activeEngineType = carrierProfileRepository.getEngineType()
 
     val isNeuralModelReady: Boolean
         get() = neuralRunner.isModelLoaded
@@ -36,13 +33,24 @@ class LocalLlmEngine(
         get() = neuralRunner.activeModelName
 
     init {
-        initializeNeuralModel()
+        initializePreferredModel()
     }
 
-    private fun initializeNeuralModel() {
-        val defaultModel = modelManager.getDefaultModel()
-        if (defaultModel != null) {
-            neuralRunner.loadModel(defaultModel)
+    private fun initializePreferredModel() {
+        val preferred = carrierProfileRepository.getPreferredLocalModel()
+        val candidate = modelManager.getModelByPreference(preferred)
+        if (candidate != null) {
+            neuralRunner.loadModel(candidate)
+        }
+    }
+
+    fun setPreferredLocalModel(modelName: String): Boolean {
+        carrierProfileRepository.savePreferredLocalModel(modelName)
+        val candidate = modelManager.getModelByPreference(modelName)
+        return if (candidate != null) {
+            neuralRunner.loadModel(candidate)
+        } else {
+            false
         }
     }
 
@@ -51,11 +59,7 @@ class LocalLlmEngine(
     }
 
     fun reloadCarrierProfile() {
-        knowledgeEngine = FreightKnowledgeEngine(carrierProfile = carrierProfileRepository.getProfile())
-        cloudClient.updateConfig(
-            newApiKey = carrierProfileRepository.getGroqApiKey(),
-            newModelName = carrierProfileRepository.getCloudModel()
-        )
+        reloadCloudConfig()
     }
 
     fun reloadCloudConfig() {
@@ -80,28 +84,41 @@ class LocalLlmEngine(
                 if (cloudResult != null) {
                     return@withContext cloudResult
                 }
-            } catch (_: Exception) {
-                // Graceful fallback to on-device neural or deterministic engine
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "Cloud AI inference failed: ${e.message}", e)
             }
         }
 
-        // 2. On-device local neural model if loaded or requested
+        // 2. On-device local neural model if requested or as fallback
         val shouldRunNeural = when (forcedEngineType) {
-            EngineType.LOCAL_NEURAL -> neuralRunner.isModelLoaded
-            EngineType.DETERMINISTIC_EXPERT -> false
-            EngineType.HYBRID -> neuralRunner.isModelLoaded
+            EngineType.LOCAL_NEURAL -> true
+            EngineType.HYBRID -> true
+            EngineType.DETERMINISTIC_EXPERT -> neuralRunner.isModelLoaded
         }
 
         if (shouldRunNeural && neuralRunner.isModelLoaded) {
             try {
                 return@withContext executeNeuralInference(question, recentTurns, isRomanianEnabled, startTime)
-            } catch (_: Exception) {
-                // Graceful instant fallback to deterministic expert engine
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "Local neural inference failed: ${e.message}", e)
             }
         }
 
-        // 3. Instant local fallback engine (covers fast-path small talk and freight specifics)
-        knowledgeEngine.createTurn(question, isRomanianEnabled, startTime)
+        // 3. Natural status turn when neither Cloud nor Local model is available
+        val noticeEn = "Cloud AI is unavailable and no local model (Llama 3.2 or Gemma 2) is downloaded. Please check internet connection or download a model in Settings."
+        val noticeRo = if (isRomanianEnabled) {
+            "Cloud AI este indisponibil și niciun model local (Llama 3.2 sau Gemma 2) nu este descărcat. Verificați conexiunea sau descărcați un model din Setări."
+        } else null
+
+        CopilotTurn(
+            transcriptEn = question,
+            transcriptRo = if (isRomanianEnabled) "Conexiune indisponibilă" else null,
+            answerEn = noticeEn,
+            answerRo = noticeRo,
+            confidence = 1.0f,
+            latencyMs = (System.currentTimeMillis() - startTime).coerceAtLeast(1L),
+            matchedCategory = "AI System Notice"
+        )
     }
 
     private suspend fun executeNeuralInference(
@@ -111,30 +128,49 @@ class LocalLlmEngine(
         startTime: Long
     ): CopilotTurn {
         val prompt = PromptBuilder.buildUserPrompt(question, recentTurns, isRomanianEnabled)
-        val generatedText = neuralRunner.generateResponse(prompt)
+        val generatedText = neuralRunner.generateResponse(prompt).trim()
+        val latency = (System.currentTimeMillis() - startTime).coerceAtLeast(50L)
 
-        val latency = (System.currentTimeMillis() - startTime).coerceAtLeast(100L)
-        val dynamicMatch = knowledgeEngine.evaluate(question, isRomanianEnabled)
-
-        val cleanAnswer = if (generatedText.isNotBlank() && generatedText.length > 20) {
-            generatedText.trim()
-        } else {
-            dynamicMatch.answerEn
-        }
+        val activeName = neuralRunner.activeModelName ?: "Local Neural"
+        val parsed = parseJsonResponse(generatedText)
 
         return CopilotTurn(
             transcriptEn = question,
-            transcriptRo = dynamicMatch.questionRo,
-            answerEn = cleanAnswer,
-            answerRo = dynamicMatch.answerRo,
-            confidence = (dynamicMatch.confidence * 1.05f).coerceAtMost(0.99f),
+            transcriptRo = parsed.first,
+            answerEn = parsed.second,
+            answerRo = parsed.third,
+            confidence = 0.95f,
             latencyMs = latency,
-            matchedCategory = "${dynamicMatch.category} (Neural G1)"
+            matchedCategory = "Local AI ($activeName)"
         )
+    }
+
+    private fun parseJsonResponse(rawJson: String): Triple<String?, String, String?> {
+        try {
+            val startIdx = rawJson.indexOf('{')
+            val endIdx = rawJson.lastIndexOf('}')
+            if (startIdx != -1 && endIdx != -1 && endIdx > startIdx) {
+                val clean = rawJson.substring(startIdx, endIdx + 1)
+                val json = JSONObject(clean)
+                val answerEn = json.optString("answer_en", "").trim()
+                val transcriptRo = if (json.has("transcript_ro") && !json.isNull("transcript_ro")) {
+                    json.getString("transcript_ro").trim().takeIf { it.isNotBlank() && it != "null" }
+                } else null
+                val answerRo = if (json.has("answer_ro") && !json.isNull("answer_ro")) {
+                    json.getString("answer_ro").trim().takeIf { it.isNotBlank() && it != "null" }
+                } else null
+                if (answerEn.isNotBlank()) {
+                    return Triple(transcriptRo, answerEn, answerRo)
+                }
+            }
+        } catch (_: Exception) {}
+
+        return Triple(null, rawJson.trim(), null)
     }
 
     fun setEngineType(type: EngineType) {
         activeEngineType = type
+        carrierProfileRepository.saveEngineType(type)
     }
 
     fun getAvailableModels(): List<AvailableModelInfo> {
@@ -143,5 +179,9 @@ class LocalLlmEngine(
 
     override fun close() {
         neuralRunner.close()
+    }
+
+    companion object {
+        private const val TAG = "LocalLlmEngine"
     }
 }

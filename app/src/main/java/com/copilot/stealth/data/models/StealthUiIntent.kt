@@ -15,6 +15,10 @@ sealed interface StealthUiIntent {
     data object ToggleCalculator : StealthUiIntent
     data object ToggleCarrierProfileEditor : StealthUiIntent
     data object ToggleMockSimulator : StealthUiIntent
+    data object ToggleEngineSelection : StealthUiIntent
+    data class SelectEngineType(val engineType: EngineType) : StealthUiIntent
+    data class SelectLocalModel(val modelName: String) : StealthUiIntent
+    data class TriggerModelDownload(val modelId: String) : StealthUiIntent
     data object PanicWipe : StealthUiIntent
     data object ExportTranscript : StealthUiIntent
     data class SaveCarrierProfile(val profile: CarrierProfile) : StealthUiIntent

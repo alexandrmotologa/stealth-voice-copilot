@@ -98,6 +98,7 @@ class CloudLlmClient(
                 setRequestProperty("Authorization", "Bearer $apiKey")
                 setRequestProperty("Content-Type", "application/json")
                 setRequestProperty("Accept", "application/json")
+                setRequestProperty("User-Agent", "StealthVoiceCopilot/1.0")
                 connectTimeout = 3000
                 readTimeout = 4000
                 doOutput = true

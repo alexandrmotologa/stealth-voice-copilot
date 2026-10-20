@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.copilot.stealth.data.models.EngineType
 import com.copilot.stealth.data.models.StealthUiState
 import com.copilot.stealth.ui.theme.LocalStealthPalette
 import com.copilot.stealth.ui.theme.StatusError
@@ -33,13 +34,15 @@ import com.copilot.stealth.ui.theme.StatusProcessing
 import com.copilot.stealth.ui.theme.StatusStandby
 
 /**
- * 2026 Minimalist AMOLED Top Status Bar.
- * Clean, discreet telemetry displaying voice activity status, latency, and a single settings trigger.
+ * Minimalist AMOLED Top Status Bar.
+ * Clean, discreet telemetry displaying voice activity status, latency,
+ * active AI Engine selector, and settings trigger.
  */
 @Composable
 fun TopStatusBar(
     uiState: StealthUiState,
     onOpenTools: () -> Unit,
+    onOpenEngineSelection: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val palette = LocalStealthPalette.current
@@ -112,30 +115,70 @@ fun TopStatusBar(
             }
         }
 
-        // Right: Settings & Tools trigger
-        Row(
-            modifier = Modifier
-                .clip(RoundedCornerShape(6.dp))
-                .background(Color(0xFF141414))
-                .border(1.dp, Color(0xFF222222), RoundedCornerShape(6.dp))
-                .clickable { onOpenTools() }
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.Settings,
-                contentDescription = "Settings & Tools",
-                tint = palette.textMetadata,
-                modifier = Modifier.size(13.dp)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = "SETTINGS",
-                color = palette.textMetadata,
-                fontSize = 10.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.SemiBold
-            )
+        // Right: Active Engine Selector Pill + Settings trigger
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            val engineLabel = if (uiState.activeEngineType == EngineType.HYBRID) {
+                "GROQ (AI)"
+            } else {
+                if (uiState.preferredLocalModel.contains("llama", ignoreCase = true)) "LLAMA" else "GEMMA"
+            }
+            val engineColor = if (uiState.activeEngineType == EngineType.HYBRID) {
+                palette.statusActive
+            } else {
+                palette.highlightAcronym
+            }
+
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color(0xFF141414))
+                    .border(1.dp, engineColor.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+                    .clickable { onOpenEngineSelection() }
+                    .padding(horizontal = 7.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(engineColor)
+                )
+                Spacer(modifier = Modifier.width(5.dp))
+                Text(
+                    text = engineLabel,
+                    color = engineColor,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color(0xFF141414))
+                    .border(1.dp, Color(0xFF222222), RoundedCornerShape(6.dp))
+                    .clickable { onOpenTools() }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings & Tools",
+                    tint = palette.textMetadata,
+                    modifier = Modifier.size(13.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "SETTINGS",
+                    color = palette.textMetadata,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     }
 }
