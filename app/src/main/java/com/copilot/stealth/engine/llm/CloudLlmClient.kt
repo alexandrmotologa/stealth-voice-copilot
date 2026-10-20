@@ -15,7 +15,7 @@ import java.net.URL
  */
 class CloudLlmClient(
     private var apiKey: String,
-    private var modelName: String = "openai/gpt-oss-20b",
+    private var modelName: String = "qwen/qwen3.8-27b",
     private var baseUrl: String = "https://api.groq.com/openai/v1/chat/completions"
 ) {
 
@@ -30,8 +30,38 @@ class CloudLlmClient(
         isRomanianEnabled: Boolean,
         startTimeMs: Long = System.currentTimeMillis()
     ): CopilotTurn? = withContext(Dispatchers.IO) {
-        if (apiKey.isBlank()) return@withContext null
+        if (apiKey.isBlank()) {
+            android.util.Log.w(TAG, "Groq API key is blank; skipping cloud inference")
+            return@withContext null
+        }
 
+        // Ordered list of candidate models on Groq Free Tier
+        val candidateModels = listOf(
+            modelName,
+            if (modelName == "qwen/qwen3.8-27b") "openai/gpt-oss-20b" else "qwen/qwen3.8-27b"
+        ).distinct()
+
+        for (candidate in candidateModels) {
+            // First attempt with strict response_format
+            var result = executeInference(candidate, question, recentTurns, isRomanianEnabled, startTimeMs, useJsonMode = true)
+            if (result != null) return@withContext result
+
+            // Fallback attempt without strict response_format (fixes json_validate_failed)
+            result = executeInference(candidate, question, recentTurns, isRomanianEnabled, startTimeMs, useJsonMode = false)
+            if (result != null) return@withContext result
+        }
+
+        null
+    }
+
+    private fun executeInference(
+        targetModel: String,
+        question: String,
+        recentTurns: List<CopilotTurn>,
+        isRomanianEnabled: Boolean,
+        startTimeMs: Long,
+        useJsonMode: Boolean
+    ): CopilotTurn? {
         try {
             val systemPrompt = if (isRomanianEnabled) {
                 """
@@ -84,23 +114,26 @@ class CloudLlmClient(
             messagesArray.put(currentMsg)
 
             val payload = JSONObject().apply {
-                put("model", modelName)
+                put("model", targetModel)
                 put("messages", messagesArray)
                 put("temperature", 0.3)
-                put("max_tokens", 150)
-                val respFormat = JSONObject().apply { put("type", "json_object") }
-                put("response_format", respFormat)
+                // Set max_tokens to 400 so reasoning tokens or long answers don't get truncated
+                put("max_tokens", 400)
+                if (useJsonMode) {
+                    val respFormat = JSONObject().apply { put("type", "json_object") }
+                    put("response_format", respFormat)
+                }
             }
 
             val url = URL(baseUrl)
             val connection = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
                 setRequestProperty("Authorization", "Bearer $apiKey")
-                setRequestProperty("Content-Type", "application/json")
+                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                 setRequestProperty("Accept", "application/json")
-                setRequestProperty("User-Agent", "StealthVoiceCopilot/1.0")
-                connectTimeout = 3000
-                readTimeout = 4000
+                setRequestProperty("User-Agent", "StealthVoiceCopilot/1.0 (Android)")
+                connectTimeout = 4000
+                readTimeout = 6000
                 doOutput = true
                 doInput = true
             }
@@ -112,8 +145,10 @@ class CloudLlmClient(
 
             val responseCode = connection.responseCode
             if (responseCode == HttpURLConnection.HTTP_OK) {
-                val responseText = connection.inputStream.bufferedReader().use { it.readText() }
-                android.util.Log.d(TAG, "Groq Cloud response received in ${System.currentTimeMillis() - startTimeMs}ms: $responseText")
+                val responseText = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                val latency = (System.currentTimeMillis() - startTimeMs).coerceAtLeast(1L)
+                android.util.Log.d(TAG, "Groq response [$targetModel, jsonMode=$useJsonMode] in ${latency}ms")
+
                 val rootJson = JSONObject(responseText)
                 val choices = rootJson.getJSONArray("choices")
                 if (choices.length() > 0) {
@@ -121,35 +156,44 @@ class CloudLlmClient(
                     val rawContent = message.getString("content").trim()
 
                     val parsed = parseJsonResponse(rawContent)
-                    val latency = (System.currentTimeMillis() - startTimeMs).coerceAtLeast(1L)
+                    val shortModelName = targetModel.substringAfterLast("/")
 
-                    return@withContext CopilotTurn(
+                    return CopilotTurn(
                         transcriptEn = question,
                         transcriptRo = parsed.first,
                         answerEn = parsed.second,
                         answerRo = parsed.third,
                         confidence = 0.99f,
                         latencyMs = latency,
-                        matchedCategory = "AI Neural (${modelName.substringAfterLast("/")})"
+                        matchedCategory = "AI Neural ($shortModelName)"
                     )
                 }
             } else {
-                val err = connection.errorStream?.bufferedReader()?.use { it.readText() }
-                android.util.Log.e(TAG, "Groq HTTP error code $responseCode: $err")
+                val err = connection.errorStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                android.util.Log.w(TAG, "Groq HTTP error code $responseCode [$targetModel, jsonMode=$useJsonMode]: $err")
             }
-            null
         } catch (e: Exception) {
-            android.util.Log.e(TAG, "Exception in CloudLlmClient: ${e.message}", e)
-            null
+            android.util.Log.w(TAG, "Exception during Groq request [$targetModel, jsonMode=$useJsonMode]: ${e.message}")
         }
+        return null
     }
 
     private fun parseJsonResponse(rawJson: String): Triple<String?, String, String?> {
         try {
-            val startIdx = rawJson.indexOf('{')
-            val endIdx = rawJson.lastIndexOf('}')
+            var text = rawJson.trim()
+            if (text.startsWith("```json")) {
+                text = text.removePrefix("```json").trim()
+            } else if (text.startsWith("```")) {
+                text = text.removePrefix("```").trim()
+            }
+            if (text.endsWith("```")) {
+                text = text.removeSuffix("```").trim()
+            }
+
+            val startIdx = text.indexOf('{')
+            val endIdx = text.lastIndexOf('}')
             if (startIdx != -1 && endIdx != -1 && endIdx > startIdx) {
-                val clean = rawJson.substring(startIdx, endIdx + 1)
+                val clean = text.substring(startIdx, endIdx + 1)
                 val json = JSONObject(clean)
                 val answerEn = json.optString("answer_en", "").trim()
                 val transcriptRo = if (json.has("transcript_ro") && !json.isNull("transcript_ro")) {

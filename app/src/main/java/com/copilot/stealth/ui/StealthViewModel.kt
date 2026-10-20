@@ -189,6 +189,7 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
             is StealthUiIntent.ToggleCarrierProfileEditor -> toggleCarrierProfileEditor()
             is StealthUiIntent.ToggleMockSimulator -> toggleMockSimulator()
             is StealthUiIntent.ToggleEngineSelection -> {
+                carrierProfileRepository.setInitialSetupCompleted(true)
                 checkModelAvailability()
                 _uiState.update { it.copy(isEngineSelectionOpen = !it.isEngineSelectionOpen) }
             }

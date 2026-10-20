@@ -43,7 +43,11 @@ class CarrierProfileRepository(private val context: Context) {
     }
 
     fun getCloudModel(): String {
-        return prefs.getString(KEY_CLOUD_MODEL, DEFAULT_CLOUD_MODEL) ?: DEFAULT_CLOUD_MODEL
+        val stored = prefs.getString(KEY_CLOUD_MODEL, null)
+        if (stored.isNullOrBlank() || stored == "openai/gpt-oss-20b") {
+            return DEFAULT_CLOUD_MODEL
+        }
+        return stored
     }
 
     fun saveCloudModel(model: String) {
@@ -72,7 +76,7 @@ class CarrierProfileRepository(private val context: Context) {
     }
 
     fun isInitialSetupCompleted(): Boolean {
-        return prefs.getBoolean(KEY_SETUP_COMPLETED, false)
+        return prefs.getBoolean(KEY_SETUP_COMPLETED, true)
     }
 
     fun setInitialSetupCompleted(completed: Boolean) {
@@ -89,6 +93,6 @@ class CarrierProfileRepository(private val context: Context) {
         private const val KEY_SETUP_COMPLETED = "initial_engine_setup_completed"
 
         const val DEFAULT_GROQ_KEY = ""
-        const val DEFAULT_CLOUD_MODEL = "openai/gpt-oss-20b"
+        const val DEFAULT_CLOUD_MODEL = "qwen/qwen3.8-27b"
     }
 }

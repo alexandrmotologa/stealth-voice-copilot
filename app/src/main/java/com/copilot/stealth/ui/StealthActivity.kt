@@ -1,6 +1,7 @@
 package com.copilot.stealth.ui
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -24,10 +25,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -93,6 +97,11 @@ class StealthActivity : ComponentActivity() {
 
         configureLockscreenFlags()
 
+        val testQuery = intent?.getStringExtra("test_query")
+        if (!testQuery.isNullOrBlank()) {
+            viewModel.handleManualQuery(testQuery)
+        }
+
         setContent {
             val uiState by viewModel.uiState.collectAsState()
 
@@ -129,6 +138,25 @@ class StealthActivity : ComponentActivity() {
                     onTriggerDownload = { id -> viewModel.processIntent(StealthUiIntent.TriggerModelDownload(id)) }
                 )
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val permission = Manifest.permission.RECORD_AUDIO
+        if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) {
+            if (!viewModel.uiState.value.isListening) {
+                viewModel.processIntent(StealthUiIntent.ToggleListening)
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val testQuery = intent.getStringExtra("test_query")
+        if (!testQuery.isNullOrBlank()) {
+            viewModel.handleManualQuery(testQuery)
         }
     }
 
@@ -216,8 +244,10 @@ fun StealthScreen(
     val mockManager = remember { MockInterviewManager() }
     var isToolsSheetOpen by remember { mutableStateOf(false) }
 
-    LaunchedEffect(uiState.currentTurns.size, uiState.livePartialTranscript) {
-        val totalCount = uiState.currentTurns.size + (if (uiState.livePartialTranscript.isNullOrBlank()) 0 else 1)
+    LaunchedEffect(uiState.currentTurns.size, uiState.livePartialTranscript, uiState.isProcessing) {
+        val totalCount = uiState.currentTurns.size +
+                (if (uiState.livePartialTranscript.isNullOrBlank()) 0 else 1) +
+                (if (uiState.isProcessing && uiState.livePartialTranscript.isNullOrBlank()) 1 else 0)
         if (totalCount > 0) {
             listState.animateScrollToItem(totalCount - 1)
         }
@@ -263,24 +293,49 @@ fun StealthScreen(
                 }
             }
 
-            // Dialogue History
+            // Teleprompter Feed (TV News Anchor High-Legibility Display)
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .padding(horizontal = 14.dp)
             ) {
-                if (uiState.currentTurns.isEmpty() && uiState.livePartialTranscript.isNullOrBlank()) {
+                if (uiState.currentTurns.isEmpty() && uiState.livePartialTranscript.isNullOrBlank() && !uiState.isProcessing) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = if (uiState.isListening) "LISTENING FOR INTERVIEWER..." else "READY • TAP MIC TO START",
-                            color = palette.textMetadata,
-                            fontSize = 11.sp,
-                            letterSpacing = 1.sp
-                        )
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(24.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(if (uiState.isListening) palette.statusActive else palette.textMetadata)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = if (uiState.isListening) "● TELEPROMPTER ÎN ASCULTARE PASIVĂ" else "TELEPROMPTER ÎN AȘTEPTARE",
+                                color = if (uiState.isListening) palette.statusActive else palette.textMetadata,
+                                fontSize = 12.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = if (uiState.isListening)
+                                    "Microfonul ascultă pasiv interlocutorul.\nRăspunsul optim va apărea instant aici pe ecran."
+                                else
+                                    "Atinge microfonul pentru a porni ascultarea pasivă.",
+                                color = palette.textMetadata,
+                                fontSize = 12.sp,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                lineHeight = 18.sp
+                            )
+                        }
                     }
                 } else {
                     LazyColumn(
@@ -292,7 +347,7 @@ fun StealthScreen(
                                 turn = turn,
                                 isRomanianEnabled = uiState.isRomanianEnabled
                             )
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
                         }
 
                         // Live partial transcript while interviewer is actively speaking
@@ -303,7 +358,15 @@ fun StealthScreen(
                                     transcriptRo = uiState.livePartialTranslation,
                                     isRomanianEnabled = uiState.isRomanianEnabled
                                 )
-                                Spacer(modifier = Modifier.height(10.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
+                        }
+
+                        // Live prompter generating card while AI is inferring
+                        if (uiState.isProcessing && uiState.livePartialTranscript.isNullOrBlank()) {
+                            item {
+                                ProcessingPrompterCard()
+                                Spacer(modifier = Modifier.height(12.dp))
                             }
                         }
                     }
@@ -399,41 +462,92 @@ fun LiveTranscriptCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFF0C1410))
-            .border(1.dp, palette.statusActive.copy(alpha = 0.45f), RoundedCornerShape(8.dp))
-            .padding(14.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFF0D1813))
+            .border(1.dp, palette.statusActive.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+            .padding(16.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(palette.statusActive)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "● HEARING INTERVIEWER...",
+                text = "● ASCULTARE PASIVĂ (INTERVIEWER VORBEȘTE)",
                 color = palette.statusActive,
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 0.5.sp
+                letterSpacing = 1.sp
             )
         }
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = transcriptEn,
-            color = palette.textAnswer,
-            fontSize = 15.sp,
+            color = Color.White,
+            fontSize = 18.sp,
             fontWeight = FontWeight.Medium,
-            lineHeight = 20.sp
+            lineHeight = 24.sp
         )
         if (isRomanianEnabled && !transcriptRo.isNullOrBlank()) {
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = transcriptRo,
                 color = palette.textRomanian,
-                fontSize = 12.sp,
-                lineHeight = 16.sp
+                fontSize = 13.sp,
+                lineHeight = 18.sp
             )
+        }
+    }
+}
+
+@Composable
+fun ProcessingPrompterCard(
+    modifier: Modifier = Modifier
+) {
+    val palette = LocalStealthPalette.current
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFF101914))
+            .border(1.dp, palette.statusActive.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
+            .padding(16.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(palette.statusActive)
+            )
+            Column {
+                Text(
+                    text = "TELEPROMPTER: SE GENEREAZĂ RĂSPUNSUL...",
+                    color = palette.statusActive,
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "⚡ Groq Cloud LPU analizează întrebarea în sub-500ms",
+                    color = palette.textMetadata,
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
         }
     }
 }

@@ -56,8 +56,8 @@ fun TopStatusBar(
 
     val statusText = when {
         uiState.errorMessage != null -> "ERROR"
-        uiState.isProcessing -> "INFERRING"
-        uiState.isListening -> "LISTENING"
+        uiState.isProcessing -> "PROMPTER: AI"
+        uiState.isListening -> "PROMPTER: LIVE"
         else -> "STANDBY"
     }
 

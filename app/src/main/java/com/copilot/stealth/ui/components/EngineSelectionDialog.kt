@@ -123,7 +123,7 @@ fun EngineSelectionDialog(
                 val isGroqSelected = uiState.activeEngineType == EngineType.HYBRID
                 EngineCard(
                     title = "Groq Cloud AI (Ultra-fast)",
-                    subtitle = "Sub-250ms latency • openai/gpt-oss-20b • Free Tier",
+                    subtitle = "Sub-250ms latency • Qwen 27B AI • Free Tier",
                     tag = "RECOMMENDED",
                     tagColor = palette.statusActive,
                     icon = Icons.Default.CloudQueue,
