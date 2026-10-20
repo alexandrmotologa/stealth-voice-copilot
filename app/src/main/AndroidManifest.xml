@@ -31,6 +31,7 @@
         <activity
             android:name=".ui.StealthActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:showWhenLocked="true"
             android:turnScreenOn="false"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"

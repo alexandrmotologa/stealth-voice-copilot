@@ -2,6 +2,7 @@ package com.copilot.stealth.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,31 +17,52 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.copilot.stealth.data.models.CopilotTurn
+import com.copilot.stealth.data.models.TeleprompterFontSize
 import com.copilot.stealth.ui.theme.LocalStealthPalette
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * High-legibility TV news teleprompter turn card.
  * Designed for instant live reading during interviews with distinct visual separation:
  * 1. "CE A AUZIT" (Interviewer query context)
- * 2. "CE SĂ RĂSPUNZI" (Large, confident, spoken teleprompter prompt)
+ * 2. "CE SĂ RĂSPUNZI" (Large, confident, spoken teleprompter prompt + 1-Tap Quick Copy)
  * 3. "CONTEXT / TRADUCERE" (Romanian assistance & translation)
  */
 @Composable
 fun TurnCard(
     turn: CopilotTurn,
     isRomanianEnabled: Boolean,
+    fontSize: TeleprompterFontSize = TeleprompterFontSize.LARGE,
     modifier: Modifier = Modifier
 ) {
     val palette = LocalStealthPalette.current
+    val clipboardManager = LocalClipboardManager.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isCopied by remember { mutableStateOf(false) }
+
+    val (answerFontSize, answerLineHeight) = when (fontSize) {
+        TeleprompterFontSize.NORMAL -> Pair(17.sp, 24.sp)
+        TeleprompterFontSize.LARGE -> Pair(20.sp, 28.sp)
+        TeleprompterFontSize.EXTRA_LARGE -> Pair(24.sp, 34.sp)
+    }
 
     Column(
         modifier = modifier
@@ -108,28 +130,61 @@ fun TurnCard(
         // Section 2: Prompter Spoken Answer (Large, High-Legibility TV News Teleprompter)
         Row(
             modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(palette.statusActive)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "CE SĂ RĂSPUNZI (TELEPROMPTER)",
+                    color = palette.statusActive,
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+            }
+
+            // 1-Tap Quick Copy Pill
             Box(
                 modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(palette.statusActive)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = "CE SĂ RĂSPUNZI (TELEPROMPTER)",
-                color = palette.statusActive,
-                fontSize = 11.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            )
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(if (isCopied) palette.statusActive.copy(alpha = 0.2f) else Color(0xFF141A16))
+                    .border(
+                        1.dp,
+                        if (isCopied) palette.statusActive else Color(0xFF23362A),
+                        RoundedCornerShape(4.dp)
+                    )
+                    .clickable {
+                        clipboardManager.setText(AnnotatedString(turn.answerEn))
+                        isCopied = true
+                        android.widget.Toast.makeText(context, "Copiat în clipboard", android.widget.Toast.LENGTH_SHORT).show()
+                        scope.launch {
+                            delay(1800)
+                            isCopied = false
+                        }
+                    }
+                    .padding(horizontal = 7.dp, vertical = 3.dp)
+            ) {
+                Text(
+                    text = if (isCopied) "COPIAT ✓" else "COPIAZĂ",
+                    color = if (isCopied) palette.statusActive else palette.textMetadata,
+                    fontSize = 9.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Suggested English Answer formatted with high visual clarity
+        // Suggested English Answer formatted with high visual clarity & selected font size
         val highlightedAnswer = FreightTextFormatter.format(
             text = turn.answerEn,
             baseColor = Color.White,
@@ -143,9 +198,9 @@ fun TurnCard(
         Text(
             text = highlightedAnswer,
             color = Color.White,
-            fontSize = 20.sp,
+            fontSize = answerFontSize,
             fontWeight = FontWeight.SemiBold,
-            lineHeight = 28.sp,
+            lineHeight = answerLineHeight,
             letterSpacing = 0.2.sp
         )
 

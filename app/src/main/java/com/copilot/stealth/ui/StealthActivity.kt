@@ -264,7 +264,8 @@ fun StealthScreen(
             TopStatusBar(
                 uiState = uiState,
                 onOpenTools = { isToolsSheetOpen = true },
-                onOpenEngineSelection = onOpenEngineSelection
+                onOpenEngineSelection = onOpenEngineSelection,
+                onToggleWhisper = onToggleWhisper
             )
 
             // Collapsible Freight Math Bar (if opened in settings)
@@ -345,7 +346,8 @@ fun StealthScreen(
                         items(uiState.currentTurns, key = { it.id }) { turn ->
                             TurnCard(
                                 turn = turn,
-                                isRomanianEnabled = uiState.isRomanianEnabled
+                                isRomanianEnabled = uiState.isRomanianEnabled,
+                                fontSize = uiState.carrierProfile.fontSize
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                         }

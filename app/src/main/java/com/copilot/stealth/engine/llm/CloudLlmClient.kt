@@ -28,6 +28,7 @@ class CloudLlmClient(
         question: String,
         recentTurns: List<CopilotTurn>,
         isRomanianEnabled: Boolean,
+        profile: com.copilot.stealth.data.models.CarrierProfile = com.copilot.stealth.data.models.CarrierProfile(),
         startTimeMs: Long = System.currentTimeMillis()
     ): CopilotTurn? = withContext(Dispatchers.IO) {
         if (apiKey.isBlank()) {
@@ -43,11 +44,11 @@ class CloudLlmClient(
 
         for (candidate in candidateModels) {
             // First attempt with strict response_format
-            var result = executeInference(candidate, question, recentTurns, isRomanianEnabled, startTimeMs, useJsonMode = true)
+            var result = executeInference(candidate, question, recentTurns, isRomanianEnabled, profile, startTimeMs, useJsonMode = true)
             if (result != null) return@withContext result
 
             // Fallback attempt without strict response_format (fixes json_validate_failed)
-            result = executeInference(candidate, question, recentTurns, isRomanianEnabled, startTimeMs, useJsonMode = false)
+            result = executeInference(candidate, question, recentTurns, isRomanianEnabled, profile, startTimeMs, useJsonMode = false)
             if (result != null) return@withContext result
         }
 
@@ -59,30 +60,12 @@ class CloudLlmClient(
         question: String,
         recentTurns: List<CopilotTurn>,
         isRomanianEnabled: Boolean,
+        profile: com.copilot.stealth.data.models.CarrierProfile,
         startTimeMs: Long,
         useJsonMode: Boolean
     ): CopilotTurn? {
         try {
-            val systemPrompt = if (isRomanianEnabled) {
-                """
-                You are a discreet, intelligent real-time voice assistant helping a candidate in an interview or professional dialog.
-                Rules:
-                1. Provide a direct, natural, confident spoken response in 1 or 2 concise English sentences that the user can read aloud immediately.
-                2. Provide the Romanian translation of the question and a brief Romanian translation of the answer.
-                3. Respond to ANY topic naturally without predefined domain constraints unless freight/logistics is specifically asked.
-                4. Output STRICT JSON only:
-                {"transcript_ro":"<Romanian question translation>","answer_en":"<1-2 concise English spoken sentences>","answer_ro":"<Romanian answer explanation>"}
-                """.trimIndent()
-            } else {
-                """
-                You are a discreet, intelligent real-time voice assistant helping a candidate in an interview or professional dialog.
-                Rules:
-                1. Provide a direct, natural, confident spoken response in 1 or 2 concise English sentences that the user can read aloud immediately.
-                2. Respond to ANY topic naturally without predefined domain constraints unless freight/logistics is specifically asked.
-                3. Output STRICT JSON only:
-                {"transcript_ro":null,"answer_en":"<1-2 concise English spoken sentences>","answer_ro":null}
-                """.trimIndent()
-            }
+            val systemPrompt = PromptBuilder.buildSystemPrompt(isRomanianEnabled, profile)
 
             val messagesArray = JSONArray()
 

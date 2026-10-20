@@ -214,6 +214,14 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
                 downloadManager.startDownload(spec)
             }
             is StealthUiIntent.SaveCarrierProfile -> saveCarrierProfile(intent.profile)
+            is StealthUiIntent.SetFontSize -> {
+                val updated = _uiState.value.carrierProfile.copy(fontSize = intent.fontSize)
+                saveCarrierProfile(updated)
+            }
+            is StealthUiIntent.SetProfileMode -> {
+                val updated = _uiState.value.carrierProfile.copy(profileMode = intent.mode)
+                saveCarrierProfile(updated)
+            }
             is StealthUiIntent.SetAudioSource -> setAudioSource(intent.source)
             is StealthUiIntent.SetBluetoothConnected -> {
                 _uiState.update { it.copy(isBluetoothHeadsetConnected = intent.isConnected) }
@@ -368,6 +376,16 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
             OverlayMode.MINIMIZED -> OverlayMode.LOCKSCREEN
         }
         _uiState.update { it.copy(overlayMode = nextMode) }
+
+        val app = getApplication<Application>()
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M && android.provider.Settings.canDrawOverlays(app)) {
+            val intent = android.content.Intent(app, StealthOverlayService::class.java)
+            if (nextMode == OverlayMode.FLOATING_HUD || nextMode == OverlayMode.MINIMIZED) {
+                app.startService(intent)
+            } else {
+                app.stopService(intent)
+            }
+        }
     }
 
     private fun cycleEngineType() {
@@ -463,6 +481,7 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
                 question = query,
                 recentTurns = _uiState.value.currentTurns,
                 isRomanianEnabled = _uiState.value.isRomanianEnabled,
+                profile = _uiState.value.carrierProfile,
                 forcedEngineType = _uiState.value.activeEngineType
             )
 

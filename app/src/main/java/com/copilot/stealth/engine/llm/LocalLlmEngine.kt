@@ -1,6 +1,7 @@
 package com.copilot.stealth.engine.llm
 
 import android.content.Context
+import com.copilot.stealth.data.models.CarrierProfile
 import com.copilot.stealth.data.models.CopilotTurn
 import com.copilot.stealth.data.models.EngineType
 import com.copilot.stealth.data.repository.CarrierProfileRepository
@@ -73,6 +74,7 @@ class LocalLlmEngine(
         question: String,
         recentTurns: List<CopilotTurn>,
         isRomanianEnabled: Boolean,
+        profile: CarrierProfile = carrierProfileRepository.getProfile(),
         forcedEngineType: EngineType = activeEngineType
     ): CopilotTurn = withContext(Dispatchers.Default) {
         val startTime = System.currentTimeMillis()
@@ -80,7 +82,7 @@ class LocalLlmEngine(
         // 1. In HYBRID mode: Attempt ultra-fast Cloud AI first (Groq LPU: sub-250ms latency for ANY question)
         if (forcedEngineType == EngineType.HYBRID) {
             try {
-                val cloudResult = cloudClient.generateResponse(question, recentTurns, isRomanianEnabled, startTime)
+                val cloudResult = cloudClient.generateResponse(question, recentTurns, isRomanianEnabled, profile, startTime)
                 if (cloudResult != null) {
                     return@withContext cloudResult
                 }
@@ -98,7 +100,7 @@ class LocalLlmEngine(
 
         if (shouldRunNeural && neuralRunner.isModelLoaded) {
             try {
-                return@withContext executeNeuralInference(question, recentTurns, isRomanianEnabled, startTime)
+                return@withContext executeNeuralInference(question, recentTurns, isRomanianEnabled, profile, startTime)
             } catch (e: Exception) {
                 android.util.Log.e(TAG, "Local neural inference failed: ${e.message}", e)
             }
@@ -125,9 +127,10 @@ class LocalLlmEngine(
         question: String,
         recentTurns: List<CopilotTurn>,
         isRomanianEnabled: Boolean,
+        profile: CarrierProfile,
         startTime: Long
     ): CopilotTurn {
-        val prompt = PromptBuilder.buildUserPrompt(question, recentTurns, isRomanianEnabled)
+        val prompt = PromptBuilder.buildUserPrompt(question, recentTurns, isRomanianEnabled, profile)
         val generatedText = neuralRunner.generateResponse(prompt).trim()
         val latency = (System.currentTimeMillis() - startTime).coerceAtLeast(50L)
 

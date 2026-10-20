@@ -43,6 +43,7 @@ fun TopStatusBar(
     uiState: StealthUiState,
     onOpenTools: () -> Unit,
     onOpenEngineSelection: () -> Unit,
+    onToggleWhisper: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val palette = LocalStealthPalette.current
@@ -98,19 +99,23 @@ fun TopStatusBar(
             }
 
             Spacer(modifier = Modifier.width(8.dp))
-            // Route indicator
+            // Route / Whisper indicator
+            val isBt = uiState.isBluetoothHeadsetConnected
+            val btPillColor = if (isBt && uiState.isWhisperEnabled) palette.statusActive else if (isBt) palette.highlightAcronym else palette.textMetadata
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(if (uiState.isBluetoothHeadsetConnected) Color(0xFF132328) else Color(0xFF141414))
-                    .border(1.dp, if (uiState.isBluetoothHeadsetConnected) Color(0xFF234450) else Color(0xFF222222), RoundedCornerShape(3.dp))
-                    .padding(horizontal = 5.dp, vertical = 2.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(if (isBt) Color(0xFF132328) else Color(0xFF141414))
+                    .border(1.dp, if (isBt) Color(0xFF234450) else Color(0xFF222222), RoundedCornerShape(4.dp))
+                    .clickable(enabled = isBt && onToggleWhisper != null) { onToggleWhisper?.invoke() }
+                    .padding(horizontal = 6.dp, vertical = 3.dp)
             ) {
                 Text(
-                    text = if (uiState.isBluetoothHeadsetConnected) "BT: BUDS" else "MIC: INT",
-                    color = if (uiState.isBluetoothHeadsetConnected) palette.highlightAcronym else palette.textMetadata,
+                    text = if (isBt) "🎧 WHISPER: ${if (uiState.isWhisperEnabled) "ON" else "OFF"}" else "MIC: INT",
+                    color = btPillColor,
                     fontSize = 9.sp,
-                    fontFamily = FontFamily.Monospace
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = if (isBt) FontWeight.Bold else FontWeight.Normal
                 )
             }
         }
@@ -161,7 +166,7 @@ fun TopStatusBar(
                     .background(Color(0xFF141414))
                     .border(1.dp, Color(0xFF222222), RoundedCornerShape(6.dp))
                     .clickable { onOpenTools() }
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .padding(horizontal = 8.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
@@ -176,7 +181,8 @@ fun TopStatusBar(
                     color = palette.textMetadata,
                     fontSize = 10.sp,
                     fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
                 )
             }
         }

@@ -191,7 +191,7 @@ def render_screenshot_2():
     # Tile 2: Candidate
     draw.rounded_rectangle([(win_x + 40 + gw, win_y + 90), (win_x + 40 + gw * 2, win_y + 90 + gh)], radius=16, fill=(16, 18, 22))
     draw.rectangle([(win_x + 40 + gw, win_y + 90 + gh - 60), (win_x + 40 + gw * 2, win_y + 90 + gh)], fill=(18, 20, 26))
-    draw.text((win_x + 60 + gw, win_y + 90 + gh - 44), "Alexandr Motologa (Candidate)", font=get_font(22), fill=(200, 200, 210))
+    draw.text((win_x + 60 + gw, win_y + 90 + gh - 44), "Candidate (Live Stream)", font=get_font(22), fill=(200, 200, 210))
     draw.text((win_x + 60 + gw + 220, win_y + 420), "[Video Live - Listening attentively]", font=get_font(28), fill=(110, 130, 160))
     
     # Floating Stealth HUD Bubble at the bottom

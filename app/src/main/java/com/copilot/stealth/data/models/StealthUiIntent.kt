@@ -22,6 +22,8 @@ sealed interface StealthUiIntent {
     data object PanicWipe : StealthUiIntent
     data object ExportTranscript : StealthUiIntent
     data class SaveCarrierProfile(val profile: CarrierProfile) : StealthUiIntent
+    data class SetFontSize(val fontSize: TeleprompterFontSize) : StealthUiIntent
+    data class SetProfileMode(val mode: ProfileMode) : StealthUiIntent
     data class SetAudioSource(val source: AudioInputSource) : StealthUiIntent
     data class SetBluetoothConnected(val isConnected: Boolean) : StealthUiIntent
     data class OnSpeechDetected(val audioBuffer: FloatArray) : StealthUiIntent

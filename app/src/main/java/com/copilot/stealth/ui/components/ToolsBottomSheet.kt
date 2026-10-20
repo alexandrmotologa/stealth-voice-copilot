@@ -139,8 +139,8 @@ fun ToolsBottomSheet(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 ToolMenuButton(
-                    title = "CARRIER PROFILE",
-                    subtitle = "MC# & fleet specs",
+                    title = "PROFILE & CONTEXT",
+                    subtitle = "Resume, prompt & mode",
                     modifier = Modifier.weight(1f),
                     onClick = {
                         onDismiss()
