@@ -19,6 +19,7 @@ data class StealthUiState(
     val isCarrierProfileOpen: Boolean = false,
     val isMockSimulatorOpen: Boolean = false,
     val isEngineSelectionOpen: Boolean = false,
+    val groqApiKey: String = "",
     val preferredLocalModel: String = "Llama 3.2 1B",
     val isLlamaDownloaded: Boolean = false,
     val isGemmaDownloaded: Boolean = false,

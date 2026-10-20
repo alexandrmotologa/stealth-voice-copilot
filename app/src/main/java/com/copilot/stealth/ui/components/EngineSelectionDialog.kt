@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -31,10 +32,17 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -51,6 +59,7 @@ fun EngineSelectionDialog(
     onSelectEngine: (EngineType) -> Unit,
     onSelectLocalModel: (String) -> Unit,
     onTriggerDownload: (String) -> Unit,
+    onSaveGroqApiKey: (String) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val palette = LocalStealthPalette.current
@@ -130,6 +139,14 @@ fun EngineSelectionDialog(
                     isSelected = isGroqSelected,
                     onClick = { onSelectEngine(EngineType.HYBRID) }
                 )
+
+                if (isGroqSelected) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    GroqApiKeyConfigCard(
+                        currentApiKey = uiState.groqApiKey,
+                        onSaveApiKey = onSaveGroqApiKey
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -404,6 +421,173 @@ private fun LocalModelRow(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun GroqApiKeyConfigCard(
+    currentApiKey: String,
+    onSaveApiKey: (String) -> Unit
+) {
+    val palette = LocalStealthPalette.current
+    val clipboardManager = LocalClipboardManager.current
+    var inputKey by remember(currentApiKey) { mutableStateOf(currentApiKey) }
+    var isSavedRecently by remember { mutableStateOf(false) }
+
+    val hasKey = currentApiKey.isNotBlank()
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFF0C120E))
+            .border(
+                1.dp,
+                if (hasKey) palette.statusActive.copy(alpha = 0.5f) else Color(0xFF382222),
+                RoundedCornerShape(10.dp)
+            )
+            .padding(12.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(if (hasKey) palette.statusActive else Color(0xFFE53935))
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "GROQ API KEY",
+                        color = palette.textAnswer,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+
+                Text(
+                    text = if (hasKey) {
+                        "● ACTIVĂ (${currentApiKey.take(4)}...${currentApiKey.takeLast(4)})"
+                    } else {
+                        "○ CHEIE LIPSĂ"
+                    },
+                    color = if (hasKey) palette.statusActive else Color(0xFFE53935),
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Key Input Box
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color(0xFF050505))
+                    .border(1.dp, Color(0xFF222222), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
+            ) {
+                if (inputKey.isEmpty()) {
+                    Text(
+                        text = "gsk_...",
+                        color = Color(0xFF555555),
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+                BasicTextField(
+                    value = inputKey,
+                    onValueChange = {
+                        inputKey = it
+                        isSavedRecently = false
+                    },
+                    textStyle = TextStyle(
+                        color = palette.textAnswer,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace
+                    ),
+                    cursorBrush = SolidColor(palette.statusActive),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Actions row: Paste & Save
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Paste button
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFF1E1E1E))
+                        .border(1.dp, Color(0xFF333333), RoundedCornerShape(6.dp))
+                        .clickable {
+                            val clipText = clipboardManager.getText()?.text?.trim()
+                            if (!clipText.isNullOrBlank()) {
+                                inputKey = clipText
+                                isSavedRecently = false
+                            }
+                        }
+                        .padding(vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "PASTE DIN CLIPBOARD",
+                        color = palette.textMetadata,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                // Save button
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(if (isSavedRecently) palette.statusActive else Color(0xFF1C2D1F))
+                        .border(1.dp, palette.statusActive, RoundedCornerShape(6.dp))
+                        .clickable {
+                            val trimmed = inputKey.trim()
+                            onSaveApiKey(trimmed)
+                            isSavedRecently = true
+                        }
+                        .padding(vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (isSavedRecently) "SALVAT ✓" else "SALVEAZĂ CHEIA",
+                        color = if (isSavedRecently) Color.Black else palette.statusActive,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = "Cheie gratuită de pe console.groq.com. Salvată strict pe telefon, niciodată pe GitHub.",
+                color = palette.textMetadata,
+                fontSize = 9.sp,
+                lineHeight = 13.sp
+            )
         }
     }
 }

@@ -258,54 +258,7 @@ fun ToolsBottomSheet(
                 onClick = onToggleOverlay
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Section 3: Scenario Benchmarks (Tucked away for quick testing)
-            Text(
-                text = "TEST BENCHMARKS (TAP TO SIMULATE)",
-                color = palette.textMetadata,
-                fontSize = 10.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                val benchmarks = listOf(
-                    "Detention" to "What is your standard policy when a driver is delayed at a facility past two hours?",
-                    "TONU" to "The broker cancels the load while the driver is already on site. What is your TONU fee?",
-                    "Rate Con" to "What do you verify on a rate confirmation before signing?",
-                    "Layover" to "What is your standard layover policy if the facility holds the driver overnight?",
-                    "HOS & ELD" to "Explain property-carrying Hours of Service regulations and how you plan long haul transit.",
-                    "Lumper" to "The receiver demands a cash lumper payment. What is your policy?",
-                    "OS&D BOL" to "What should the driver do if the cargo count does not match the BOL at pickup?"
-                )
-
-                benchmarks.forEach { (label, query) ->
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFF141414))
-                            .border(1.dp, Color(0xFF242424), RoundedCornerShape(6.dp))
-                            .clickable {
-                                onDismiss()
-                                onScenarioSelected(query)
-                            }
-                            .padding(horizontal = 8.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = label,
-                            color = palette.textMetadata,
-                            fontSize = 10.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-                }
-            }
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

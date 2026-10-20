@@ -31,11 +31,10 @@ class CarrierProfileRepository(private val context: Context) {
 
     fun getGroqApiKey(): String {
         val stored = prefs.getString(KEY_GROQ_KEY, null)
-        // Disregard old or invalid cached keys to ensure new Groq key from BuildConfig is active
         if (!stored.isNullOrBlank() && !stored.startsWith("gsk_flKkUxk8")) {
             return stored
         }
-        return com.copilot.stealth.BuildConfig.DEFAULT_GROQ_API_KEY
+        return ""
     }
 
     fun saveGroqApiKey(key: String) {

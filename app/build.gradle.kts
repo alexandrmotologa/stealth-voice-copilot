@@ -24,13 +24,8 @@ android {
             useSupportLibrary = true
         }
 
-        val properties = Properties()
-        val localPropertiesFile = project.rootProject.file("local.properties")
-        if (localPropertiesFile.exists()) {
-            properties.load(FileInputStream(localPropertiesFile))
-        }
-        val groqKey = properties.getProperty("GROQ_API_KEY", "")
-        buildConfigField("String", "DEFAULT_GROQ_API_KEY", "\"$groqKey\"")
+        // Zero hardcoded secrets in APK bytecode - API key is entered securely in-app and stored in SharedPreferences
+        buildConfigField("String", "DEFAULT_GROQ_API_KEY", "\"\"")
     }
 
     buildTypes {

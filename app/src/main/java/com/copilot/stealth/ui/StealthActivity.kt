@@ -135,7 +135,8 @@ class StealthActivity : ComponentActivity() {
                     onOpenEngineSelection = { viewModel.processIntent(StealthUiIntent.ToggleEngineSelection) },
                     onSelectEngine = { type -> viewModel.processIntent(StealthUiIntent.SelectEngineType(type)) },
                     onSelectLocalModel = { name -> viewModel.processIntent(StealthUiIntent.SelectLocalModel(name)) },
-                    onTriggerDownload = { id -> viewModel.processIntent(StealthUiIntent.TriggerModelDownload(id)) }
+                    onTriggerDownload = { id -> viewModel.processIntent(StealthUiIntent.TriggerModelDownload(id)) },
+                    onSaveGroqApiKey = { key -> viewModel.processIntent(StealthUiIntent.SaveGroqApiKey(key)) }
                 )
             }
         }
@@ -237,7 +238,8 @@ fun StealthScreen(
     onOpenEngineSelection: () -> Unit,
     onSelectEngine: (EngineType) -> Unit,
     onSelectLocalModel: (String) -> Unit,
-    onTriggerDownload: (String) -> Unit
+    onTriggerDownload: (String) -> Unit,
+    onSaveGroqApiKey: (String) -> Unit = {}
 ) {
     val listState = rememberLazyListState()
     val palette = LocalStealthPalette.current
@@ -414,6 +416,7 @@ fun StealthScreen(
                 onSelectEngine = onSelectEngine,
                 onSelectLocalModel = onSelectLocalModel,
                 onTriggerDownload = onTriggerDownload,
+                onSaveGroqApiKey = onSaveGroqApiKey,
                 onDismiss = onOpenEngineSelection
             )
         }

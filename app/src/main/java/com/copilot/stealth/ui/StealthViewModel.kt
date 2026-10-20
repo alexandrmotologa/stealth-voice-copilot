@@ -66,11 +66,13 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
     init {
         checkModelAvailability()
         val isFirstLaunch = !carrierProfileRepository.isInitialSetupCompleted()
+        val currentGroqKey = carrierProfileRepository.getGroqApiKey()
         _uiState.update {
             it.copy(
                 activeEngineType = carrierProfileRepository.getEngineType(),
                 preferredLocalModel = carrierProfileRepository.getPreferredLocalModel(),
-                isEngineSelectionOpen = isFirstLaunch
+                isEngineSelectionOpen = isFirstLaunch,
+                groqApiKey = currentGroqKey
             )
         }
         setupVadCallbacks()
@@ -214,6 +216,11 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
                 downloadManager.startDownload(spec)
             }
             is StealthUiIntent.SaveCarrierProfile -> saveCarrierProfile(intent.profile)
+            is StealthUiIntent.SaveGroqApiKey -> {
+                carrierProfileRepository.saveGroqApiKey(intent.apiKey)
+                llmEngine.reloadCloudConfig()
+                _uiState.update { it.copy(groqApiKey = intent.apiKey) }
+            }
             is StealthUiIntent.SetFontSize -> {
                 val updated = _uiState.value.carrierProfile.copy(fontSize = intent.fontSize)
                 saveCarrierProfile(updated)
