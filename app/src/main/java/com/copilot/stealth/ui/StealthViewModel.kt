@@ -61,18 +61,23 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
 
     private var audioCaptureJob: Job? = null
     private var watchdogJob: Job? = null
+    private var cooldownJob: Job? = null
     private var lastSpeechTimestamp = System.currentTimeMillis()
 
     init {
         checkModelAvailability()
         val isFirstLaunch = !carrierProfileRepository.isInitialSetupCompleted()
         val currentGroqKey = carrierProfileRepository.getGroqApiKey()
+        val currentProfile = carrierProfileRepository.getProfile()
         _uiState.update {
             it.copy(
                 activeEngineType = carrierProfileRepository.getEngineType(),
                 preferredLocalModel = carrierProfileRepository.getPreferredLocalModel(),
                 isEngineSelectionOpen = isFirstLaunch,
-                groqApiKey = currentGroqKey
+                groqApiKey = currentGroqKey,
+                carrierProfile = currentProfile,
+                guidanceLanguage = currentProfile.guidanceLanguage,
+                prompterStyle = currentProfile.prompterStyle
             )
         }
         setupVadCallbacks()
@@ -94,13 +99,17 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
 
     private fun setupVadCallbacks() {
         vadDetector.onSpeechStarted = {
-            lastSpeechTimestamp = System.currentTimeMillis()
-            hapticHelper.pulseSpeechDetected()
+            if (!_uiState.value.isSpeakingCooldownActive) {
+                lastSpeechTimestamp = System.currentTimeMillis()
+                hapticHelper.pulseSpeechDetected()
+            }
         }
 
         vadDetector.onSpeechFinished = { audioBuffer ->
-            lastSpeechTimestamp = System.currentTimeMillis()
-            processIntent(StealthUiIntent.OnSpeechDetected(audioBuffer))
+            if (!_uiState.value.isSpeakingCooldownActive) {
+                lastSpeechTimestamp = System.currentTimeMillis()
+                processIntent(StealthUiIntent.OnSpeechDetected(audioBuffer))
+            }
         }
 
         vadDetector.onVADProbabilityChanged = { prob, rms ->
@@ -115,7 +124,7 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
         // Real-time partial results as interlocutor speaks (instant feedback on screen)
         viewModelScope.launch {
             nativeStt.partialTranscriptFlow.collect { partial ->
-                if (_uiState.value.isListening && partial.isNotBlank()) {
+                if (_uiState.value.isListening && !_uiState.value.isSpeakingCooldownActive && partial.isNotBlank()) {
                     lastSpeechTimestamp = System.currentTimeMillis()
                     val ro = if (_uiState.value.isRomanianEnabled) {
                         FreightKnowledgeEngine.quickTranslate(partial)
@@ -134,7 +143,7 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
         // Final utterance when interlocutor finishes question or pauses
         viewModelScope.launch {
             nativeStt.finalTranscriptFlow.collect { transcript ->
-                if (_uiState.value.isListening && transcript.isNotBlank()) {
+                if (_uiState.value.isListening && !_uiState.value.isSpeakingCooldownActive && transcript.isNotBlank()) {
                     lastSpeechTimestamp = System.currentTimeMillis()
                     _uiState.update {
                         it.copy(
@@ -159,7 +168,7 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
         // Fallback synthetic test bench collector
         viewModelScope.launch {
             sttEngine.transcriptFlow.collect { transcript ->
-                if (transcript.isNotBlank() && _uiState.value.isListening) {
+                if (transcript.isNotBlank() && _uiState.value.isListening && !_uiState.value.isSpeakingCooldownActive) {
                     lastSpeechTimestamp = System.currentTimeMillis()
                     executeInference(transcript)
                 }
@@ -228,6 +237,17 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
             is StealthUiIntent.SetProfileMode -> {
                 val updated = _uiState.value.carrierProfile.copy(profileMode = intent.mode)
                 saveCarrierProfile(updated)
+            }
+            is StealthUiIntent.SetGuidanceLanguage -> {
+                val updated = _uiState.value.carrierProfile.copy(guidanceLanguage = intent.language)
+                saveCarrierProfile(updated)
+            }
+            is StealthUiIntent.SetPrompterStyle -> {
+                val updated = _uiState.value.carrierProfile.copy(prompterStyle = intent.style)
+                saveCarrierProfile(updated)
+            }
+            is StealthUiIntent.DismissSpeakingCooldown -> {
+                dismissSpeakingCooldown()
             }
             is StealthUiIntent.SetAudioSource -> setAudioSource(intent.source)
             is StealthUiIntent.SetBluetoothConnected -> {
@@ -324,6 +344,7 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private fun stopAudioStream() {
+        dismissSpeakingCooldown()
         try {
             audioCaptureJob?.cancel()
         } catch (_: Exception) {}
@@ -452,7 +473,12 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
         carrierProfileRepository.saveProfile(profile)
         llmEngine.reloadCarrierProfile()
         _uiState.update {
-            it.copy(carrierProfile = profile, isCarrierProfileOpen = false)
+            it.copy(
+                carrierProfile = profile,
+                guidanceLanguage = profile.guidanceLanguage,
+                prompterStyle = profile.prompterStyle,
+                isCarrierProfileOpen = false
+            )
         }
         hapticHelper.pulseAnswerReady()
     }
@@ -465,6 +491,7 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private fun handleSpeechDetected(audioBuffer: FloatArray) {
+        if (_uiState.value.isSpeakingCooldownActive) return
         viewModelScope.launch {
             _uiState.update { it.copy(isProcessing = true) }
             val transcript = sttEngine.transcribe(audioBuffer)
@@ -478,6 +505,7 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
 
     fun handleManualQuery(query: String) {
         if (query.isBlank()) return
+        dismissSpeakingCooldown()
         executeInference(query)
     }
 
@@ -516,6 +544,42 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
             if (_uiState.value.isWhisperEnabled) {
                 audioPrompter.whisperAnswerInsight(turn.answerEn)
             }
+
+            // Start speaking cooldown so candidate reading answer aloud does not re-trigger VAD/STT
+            startSpeakingCooldown(12)
+        }
+    }
+
+    private fun startSpeakingCooldown(seconds: Int = 12) {
+        cooldownJob?.cancel()
+        cooldownJob = viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isSpeakingCooldownActive = true,
+                    speakingCooldownRemainingSeconds = seconds
+                )
+            }
+            for (s in seconds downTo 1) {
+                _uiState.update { it.copy(speakingCooldownRemainingSeconds = s) }
+                delay(1000L)
+            }
+            _uiState.update {
+                it.copy(
+                    isSpeakingCooldownActive = false,
+                    speakingCooldownRemainingSeconds = 0
+                )
+            }
+        }
+    }
+
+    fun dismissSpeakingCooldown() {
+        cooldownJob?.cancel()
+        cooldownJob = null
+        _uiState.update {
+            it.copy(
+                isSpeakingCooldownActive = false,
+                speakingCooldownRemainingSeconds = 0
+            )
         }
     }
 

@@ -39,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.copilot.stealth.data.models.DisplayThemeMode
 import com.copilot.stealth.data.models.EngineType
+import com.copilot.stealth.data.models.GuidanceLanguage
+import com.copilot.stealth.data.models.PrompterStyle
 import com.copilot.stealth.data.models.StealthUiState
 import com.copilot.stealth.data.models.SttLanguageMode
 import com.copilot.stealth.ui.theme.LocalStealthPalette
@@ -63,6 +65,8 @@ fun ToolsBottomSheet(
     onOpenCarrierProfile: () -> Unit,
     onOpenMockSimulator: () -> Unit,
     onOpenEngineSelection: (() -> Unit)? = null,
+    onCycleGuidanceLanguage: () -> Unit = {},
+    onCyclePrompterStyle: () -> Unit = {},
     onScenarioSelected: (String) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -219,12 +223,31 @@ fun ToolsBottomSheet(
                 onCheckedChange = { onToggleWhisper() }
             )
 
-            // Romanian guidance switch
+            // Guidance toggle switch
+            val currentLang = uiState.carrierProfile.guidanceLanguage
             PreferenceToggleRow(
-                title = "Romanian Guidance (RO)",
-                subtitle = "Displays Romanian translation and interview coaching",
-                checked = uiState.isRomanianEnabled,
+                title = "Guidance / Translation",
+                subtitle = "Displays question translation and coaching in ${currentLang.displayName}",
+                checked = uiState.isRomanianEnabled && currentLang != GuidanceLanguage.OFF,
                 onCheckedChange = { onToggleRomanian() }
+            )
+
+            // Guidance Language Selector
+            PreferenceClickableRow(
+                title = "Coaching Language",
+                currentValue = "${currentLang.displayName} (${currentLang.code})",
+                onClick = onCycleGuidanceLanguage
+            )
+
+            // Prompter Delivery Style
+            val styleName = when (uiState.carrierProfile.prompterStyle) {
+                PrompterStyle.ANCHOR_BULLETS -> "Anchor Bullets (Talking Points)"
+                PrompterStyle.FULL_SENTENCE -> "Full Script (Verbatim)"
+            }
+            PreferenceClickableRow(
+                title = "Prompter Delivery Style",
+                currentValue = styleName,
+                onClick = onCyclePrompterStyle
             )
 
             // Theme selector row

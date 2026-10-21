@@ -204,7 +204,8 @@ fun TurnCard(
             letterSpacing = 0.2.sp
         )
 
-        // Section 3: Answer Explanation & Translation in Romanian (if enabled)
+        // Section 3: Answer Explanation & Guidance in Target Language (if enabled)
+        val langCode = turn.translationLangCode ?: "RO"
         if (isRomanianEnabled && !turn.answerRo.isNullOrBlank()) {
             Spacer(modifier = Modifier.height(10.dp))
             Box(
@@ -216,7 +217,7 @@ fun TurnCard(
             ) {
                 Column {
                     Text(
-                        text = "CONTEXT & TRANSLATION (RO):",
+                        text = "CONTEXT & GUIDANCE ($langCode):",
                         color = palette.highlightAcronym,
                         fontSize = 10.sp,
                         fontFamily = FontFamily.Monospace,
@@ -230,6 +231,41 @@ fun TurnCard(
                         fontSize = 13.sp,
                         lineHeight = 18.sp
                     )
+                }
+            }
+        }
+
+        // Section 4: Predicted Follow-Up Questions
+        if (turn.followUpQuestions.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "PREDICTED FOLLOW-UPS:",
+                    color = palette.textMetadata,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                turn.followUpQuestions.take(2).forEach { followUp ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 2.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFF141A16))
+                            .border(1.dp, Color(0xFF222E26), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "↳ $followUp",
+                            color = palette.textQuestion.copy(alpha = 0.9f),
+                            fontSize = 12.sp,
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                            lineHeight = 16.sp
+                        )
+                    }
                 }
             }
         }

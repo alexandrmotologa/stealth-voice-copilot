@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,7 +39,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.copilot.stealth.data.models.CarrierProfile
+import com.copilot.stealth.data.models.GuidanceLanguage
 import com.copilot.stealth.data.models.ProfileMode
+import com.copilot.stealth.data.models.PrompterStyle
 import com.copilot.stealth.data.models.TeleprompterFontSize
 import com.copilot.stealth.ui.theme.StealthPalette
 
@@ -57,8 +60,13 @@ fun CarrierProfileSheet(
 ) {
     var selectedMode by remember { mutableStateOf(currentProfile.profileMode) }
     var selectedFontSize by remember { mutableStateOf(currentProfile.fontSize) }
+    var selectedPrompterStyle by remember { mutableStateOf(currentProfile.prompterStyle) }
+    var selectedGuidanceLang by remember { mutableStateOf(currentProfile.guidanceLanguage) }
     var candidateContext by remember { mutableStateOf(currentProfile.candidateContext) }
     var customPrompt by remember { mutableStateOf(currentProfile.customPrompt) }
+    var targetCompany by remember { mutableStateOf(currentProfile.targetCompany) }
+    var targetRole by remember { mutableStateOf(currentProfile.targetRole) }
+    var jobDescription by remember { mutableStateOf(currentProfile.jobDescription) }
 
     // Freight fields
     var companyName by remember { mutableStateOf(currentProfile.companyName) }
@@ -200,6 +208,27 @@ fun CarrierProfileSheet(
             }
 
             ProfileMode.CANDIDATE_INTERVIEW -> {
+                ProfileInputField("Target Company (e.g. Stripe, Acme Corp)", targetCompany, palette) { targetCompany = it }
+                Spacer(modifier = Modifier.height(10.dp))
+                ProfileInputField("Target Role (e.g. Senior Backend Engineer)", targetRole, palette) { targetRole = it }
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "JOB REQUIREMENTS / INTERVIEW FOCUS",
+                    color = palette.textMetadata,
+                    fontSize = 9.sp,
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 0.5.sp
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                MultiLineInputField(
+                    value = jobDescription,
+                    placeholder = "Paste key stack requirements or interview focus points from the job description...",
+                    palette = palette,
+                    onValueChange = { jobDescription = it }
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+
                 Text(
                     text = "CANDIDATE RESUME & INTERVIEW CONTEXT",
                     color = palette.textMetadata,
@@ -299,6 +328,67 @@ fun CarrierProfileSheet(
 
         Spacer(modifier = Modifier.height(18.dp))
 
+        // Prompter Delivery Style Selector
+        Text(
+            text = "PROMPTER DELIVERY STYLE",
+            color = palette.highlightAcronym,
+            fontSize = 10.sp,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FontSizeChip(
+                label = "ANCHOR BULLETS",
+                isSelected = selectedPrompterStyle == PrompterStyle.ANCHOR_BULLETS,
+                palette = palette,
+                modifier = Modifier.weight(1f)
+            ) { selectedPrompterStyle = PrompterStyle.ANCHOR_BULLETS }
+
+            FontSizeChip(
+                label = "FULL SCRIPT",
+                isSelected = selectedPrompterStyle == PrompterStyle.FULL_SENTENCE,
+                palette = palette,
+                modifier = Modifier.weight(1f)
+            ) { selectedPrompterStyle = PrompterStyle.FULL_SENTENCE }
+        }
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        // Guidance / Translation Language Selector
+        Text(
+            text = "COACHING & TRANSLATION LANGUAGE",
+            color = palette.highlightAcronym,
+            fontSize = 10.sp,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            GuidanceLanguage.values().forEach { lang ->
+                ModeSelectChip(
+                    label = if (lang == GuidanceLanguage.OFF) "DISABLED" else "${lang.displayName} (${lang.code})",
+                    isSelected = selectedGuidanceLang == lang,
+                    palette = palette,
+                    modifier = Modifier
+                ) { selectedGuidanceLang = lang }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(18.dp))
+
         // Teleprompter Font Size Selector
         Text(
             text = "TELEPROMPTER FONT SIZE",
@@ -348,8 +438,13 @@ fun CarrierProfileSheet(
                 .clickable {
                     val updated = CarrierProfile(
                         profileMode = selectedMode,
+                        prompterStyle = selectedPrompterStyle,
+                        guidanceLanguage = selectedGuidanceLang,
                         candidateContext = candidateContext.trim(),
                         customPrompt = customPrompt.trim(),
+                        targetCompany = targetCompany.trim(),
+                        targetRole = targetRole.trim(),
+                        jobDescription = jobDescription.trim(),
                         fontSize = selectedFontSize,
                         companyName = companyName.trim(),
                         mcNumber = mcNumber.trim(),

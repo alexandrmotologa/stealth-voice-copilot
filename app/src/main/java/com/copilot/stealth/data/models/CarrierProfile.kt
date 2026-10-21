@@ -18,10 +18,36 @@ enum class TeleprompterFontSize {
 }
 
 @Serializable
+enum class GuidanceLanguage(val displayName: String, val code: String) {
+    ROMANIAN("Romanian", "RO"),
+    SPANISH("Spanish", "ES"),
+    GERMAN("German", "DE"),
+    FRENCH("French", "FR"),
+    ITALIAN("Italian", "IT"),
+    RUSSIAN("Russian", "RU"),
+    UKRAINIAN("Ukrainian", "UA"),
+    POLISH("Polish", "PL"),
+    PORTUGUESE("Portuguese", "PT"),
+    TURKISH("Turkish", "TR"),
+    OFF("Disabled (English Only)", "OFF")
+}
+
+@Serializable
+enum class PrompterStyle {
+    ANCHOR_BULLETS, // Hook sentence + 2-3 bold talking points
+    FULL_SENTENCE   // Verbatim speech
+}
+
+@Serializable
 data class CarrierProfile(
     val profileMode: ProfileMode = ProfileMode.GENERAL_CONVERSATIONAL,
+    val prompterStyle: PrompterStyle = PrompterStyle.ANCHOR_BULLETS,
+    val guidanceLanguage: GuidanceLanguage = GuidanceLanguage.ROMANIAN,
     val customPrompt: String = "",
     val candidateContext: String = "",
+    val targetRole: String = "",
+    val targetCompany: String = "",
+    val jobDescription: String = "",
     val fontSize: TeleprompterFontSize = TeleprompterFontSize.LARGE,
     // Freight & fleet identity fields (for freight mode)
     val companyName: String = "Apex Freight Logistics LLC",

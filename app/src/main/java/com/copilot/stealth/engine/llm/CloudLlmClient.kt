@@ -140,12 +140,17 @@ class CloudLlmClient(
 
                     val parsed = parseJsonResponse(rawContent)
                     val shortModelName = targetModel.substringAfterLast("/")
+                    val langCode = if (profile.guidanceLanguage != com.copilot.stealth.data.models.GuidanceLanguage.OFF) {
+                        profile.guidanceLanguage.code
+                    } else null
 
                     return CopilotTurn(
                         transcriptEn = question,
-                        transcriptRo = parsed.first,
-                        answerEn = parsed.second,
-                        answerRo = parsed.third,
+                        transcriptRo = parsed.transcriptRo,
+                        answerEn = parsed.answerEn,
+                        answerRo = parsed.answerRo,
+                        translationLangCode = langCode,
+                        followUpQuestions = parsed.followUps,
                         confidence = 0.99f,
                         latencyMs = latency,
                         matchedCategory = "AI Neural ($shortModelName)"
@@ -161,7 +166,14 @@ class CloudLlmClient(
         return null
     }
 
-    private fun parseJsonResponse(rawJson: String): Triple<String?, String, String?> {
+    data class ParsedLlmResult(
+        val transcriptRo: String?,
+        val answerEn: String,
+        val answerRo: String?,
+        val followUps: List<String> = emptyList()
+    )
+
+    private fun parseJsonResponse(rawJson: String): ParsedLlmResult {
         try {
             var text = rawJson.trim()
             if (text.startsWith("```json")) {
@@ -185,13 +197,25 @@ class CloudLlmClient(
                 val answerRo = if (json.has("answer_ro") && !json.isNull("answer_ro")) {
                     json.getString("answer_ro").trim().takeIf { it.isNotBlank() && it != "null" }
                 } else null
+
+                val followUps = mutableListOf<String>()
+                val followUpsArray = json.optJSONArray("follow_ups")
+                if (followUpsArray != null) {
+                    for (i in 0 until followUpsArray.length()) {
+                        val item = followUpsArray.optString(i, "").trim()
+                        if (item.isNotBlank()) {
+                            followUps.add(item)
+                        }
+                    }
+                }
+
                 if (answerEn.isNotBlank()) {
-                    return Triple(transcriptRo, answerEn, answerRo)
+                    return ParsedLlmResult(transcriptRo, answerEn, answerRo, followUps)
                 }
             }
         } catch (_: Exception) {}
 
-        return Triple(null, rawJson.trim(), null)
+        return ParsedLlmResult(null, rawJson.trim(), null, emptyList())
     }
 
     companion object {

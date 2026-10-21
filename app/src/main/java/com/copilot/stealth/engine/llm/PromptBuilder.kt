@@ -2,7 +2,9 @@ package com.copilot.stealth.engine.llm
 
 import com.copilot.stealth.data.models.CarrierProfile
 import com.copilot.stealth.data.models.CopilotTurn
+import com.copilot.stealth.data.models.GuidanceLanguage
 import com.copilot.stealth.data.models.ProfileMode
+import com.copilot.stealth.data.models.PrompterStyle
 
 /**
  * Constructs prompt templates for on-device and cloud LLM execution,
@@ -11,6 +13,17 @@ import com.copilot.stealth.data.models.ProfileMode
 object PromptBuilder {
 
     fun buildSystemPrompt(isRomanianEnabled: Boolean, profile: CarrierProfile = CarrierProfile()): String {
+        val targetCompanyGrounding = if (profile.targetCompany.isNotBlank() || profile.targetRole.isNotBlank() || profile.jobDescription.isNotBlank()) {
+            """
+            
+            TARGET INTERVIEW SCOPE:
+            ${if (profile.targetCompany.isNotBlank()) "- Target Company: ${profile.targetCompany}" else ""}
+            ${if (profile.targetRole.isNotBlank()) "- Target Role: ${profile.targetRole}" else ""}
+            ${if (profile.jobDescription.isNotBlank()) "- Job Focus / Stack Requirements: ${profile.jobDescription}" else ""}
+            Tailor technical depth, tradeoffs, and system scale to match this exact organization and seniority.
+            """.trimIndent()
+        } else ""
+
         val identityGrounding = when (profile.profileMode) {
             ProfileMode.GENERAL_CONVERSATIONAL -> """
                 CONVERSATION MODE:
@@ -22,6 +35,7 @@ object PromptBuilder {
                 CANDIDATE PROFILE & CONTEXT:
                 ${profile.candidateContext.trim()}
                 - Style: Speak in first person ('I', 'my experience'), natural, direct, humble yet authoritative.
+                $targetCompanyGrounding
                 """.trimIndent()
             } else {
                 """
@@ -29,6 +43,7 @@ object PromptBuilder {
                 - Role: Senior Software & AI Systems Engineer (5+ years experience).
                 - Core Tech: Modern web stacks, reactive mobile & backend architectures, distributed services, LLM workflows.
                 - Style: Speak in first person ('I', 'my experience'), natural, concise, technically sound, zero buzzwords.
+                $targetCompanyGrounding
                 """.trimIndent()
             }
 
@@ -50,20 +65,35 @@ object PromptBuilder {
             """.trimIndent()
         }
 
-        val languageRules = if (isRomanianEnabled) {
+        val formatRule = when (profile.prompterStyle) {
+            PrompterStyle.ANCHOR_BULLETS -> """
+                1. In 'answer_en', provide a natural conversational opening hook sentence, followed by 2-3 crisp bullet points starting with '• ' highlighting key technical principles, tradeoffs, or metrics in bold/caps so the candidate can glance and talk naturally.
+            """.trimIndent()
+            PrompterStyle.FULL_SENTENCE -> """
+                1. In 'answer_en', provide 1 to 2 fluent, confident, natural spoken broadcast English sentences that can be read aloud verbatim off the screen.
+            """.trimIndent()
+        }
+
+        val isGuidanceActive = isRomanianEnabled && profile.guidanceLanguage != GuidanceLanguage.OFF
+        val lang = profile.guidanceLanguage
+
+        val languageRules = if (isGuidanceActive) {
             """
             Rules:
-            1. Provide a direct, natural, confident spoken response in 1 or 2 concise English sentences that can be read aloud immediately off the teleprompter.
-            2. Provide the Romanian translation of the question and a brief Romanian translation of the answer.
-            3. Output STRICT JSON only:
-            {"transcript_ro":"<Romanian question translation>","answer_en":"<1-2 concise spoken English sentences>","answer_ro":"<Romanian explanation>"}
+            $formatRule
+            2. In 'transcript_ro', provide a concise ${lang.displayName} translation of the heard question.
+            3. In 'answer_ro', provide a ${lang.displayName} coaching summary highlighting what points to emphasize.
+            4. In 'follow_ups', provide 1-2 likely technical follow-up questions the interviewer may ask next.
+            5. Output STRICT JSON only:
+            {"transcript_ro":"<${lang.displayName} translation>","answer_en":"<response>","answer_ro":"<${lang.displayName} coaching>","follow_ups":["<likely follow-up 1>","<likely follow-up 2>"]}
             """.trimIndent()
         } else {
             """
             Rules:
-            1. Provide a direct, natural, confident spoken response in 1 or 2 concise English sentences that can be read aloud immediately off the teleprompter.
-            2. Output STRICT JSON only:
-            {"transcript_ro":null,"answer_en":"<1-2 concise spoken English sentences>","answer_ro":null}
+            $formatRule
+            2. In 'follow_ups', provide 1-2 likely technical follow-up questions the interviewer may ask next.
+            3. Output STRICT JSON only:
+            {"transcript_ro":null,"answer_en":"<response>","answer_ro":null,"follow_ups":["<likely follow-up 1>","<likely follow-up 2>"]}
             """.trimIndent()
         }
 

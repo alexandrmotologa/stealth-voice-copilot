@@ -25,6 +25,9 @@ sealed interface StealthUiIntent {
     data class SaveGroqApiKey(val apiKey: String) : StealthUiIntent
     data class SetFontSize(val fontSize: TeleprompterFontSize) : StealthUiIntent
     data class SetProfileMode(val mode: ProfileMode) : StealthUiIntent
+    data class SetGuidanceLanguage(val language: GuidanceLanguage) : StealthUiIntent
+    data class SetPrompterStyle(val style: PrompterStyle) : StealthUiIntent
+    data object DismissSpeakingCooldown : StealthUiIntent
     data class SetAudioSource(val source: AudioInputSource) : StealthUiIntent
     data class SetBluetoothConnected(val isConnected: Boolean) : StealthUiIntent
     data class OnSpeechDetected(val audioBuffer: FloatArray) : StealthUiIntent

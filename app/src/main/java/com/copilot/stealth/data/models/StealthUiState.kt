@@ -10,6 +10,10 @@ import com.copilot.stealth.engine.calculator.RpmResult
 data class StealthUiState(
     val isListening: Boolean = false,
     val isRomanianEnabled: Boolean = true,
+    val guidanceLanguage: GuidanceLanguage = GuidanceLanguage.ROMANIAN,
+    val prompterStyle: PrompterStyle = PrompterStyle.ANCHOR_BULLETS,
+    val isSpeakingCooldownActive: Boolean = false,
+    val speakingCooldownRemainingSeconds: Int = 0,
     val isProcessing: Boolean = false,
     val overlayMode: OverlayMode = OverlayMode.LOCKSCREEN,
     val themeMode: DisplayThemeMode = DisplayThemeMode.AMOLED_STANDARD,

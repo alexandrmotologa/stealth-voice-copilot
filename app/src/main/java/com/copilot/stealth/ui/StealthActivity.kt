@@ -14,6 +14,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,6 +54,8 @@ import androidx.core.content.ContextCompat
 import com.copilot.stealth.data.models.AudioInputSource
 import com.copilot.stealth.data.models.CarrierProfile
 import com.copilot.stealth.data.models.EngineType
+import com.copilot.stealth.data.models.GuidanceLanguage
+import com.copilot.stealth.data.models.PrompterStyle
 import com.copilot.stealth.data.models.StealthUiIntent
 import com.copilot.stealth.data.models.StealthUiState
 import com.copilot.stealth.engine.mock.MockInterviewManager
@@ -136,7 +139,24 @@ class StealthActivity : ComponentActivity() {
                     onSelectEngine = { type -> viewModel.processIntent(StealthUiIntent.SelectEngineType(type)) },
                     onSelectLocalModel = { name -> viewModel.processIntent(StealthUiIntent.SelectLocalModel(name)) },
                     onTriggerDownload = { id -> viewModel.processIntent(StealthUiIntent.TriggerModelDownload(id)) },
-                    onSaveGroqApiKey = { key -> viewModel.processIntent(StealthUiIntent.SaveGroqApiKey(key)) }
+                    onSaveGroqApiKey = { key -> viewModel.processIntent(StealthUiIntent.SaveGroqApiKey(key)) },
+                    onCycleGuidanceLanguage = {
+                        val langs = GuidanceLanguage.values()
+                        val current = uiState.carrierProfile.guidanceLanguage
+                        val nextLang = langs[(current.ordinal + 1) % langs.size]
+                        viewModel.processIntent(StealthUiIntent.SetGuidanceLanguage(nextLang))
+                    },
+                    onCyclePrompterStyle = {
+                        val nextStyle = if (uiState.carrierProfile.prompterStyle == PrompterStyle.ANCHOR_BULLETS) {
+                            PrompterStyle.FULL_SENTENCE
+                        } else {
+                            PrompterStyle.ANCHOR_BULLETS
+                        }
+                        viewModel.processIntent(StealthUiIntent.SetPrompterStyle(nextStyle))
+                    },
+                    onDismissSpeakingCooldown = {
+                        viewModel.processIntent(StealthUiIntent.DismissSpeakingCooldown)
+                    }
                 )
             }
         }
@@ -198,6 +218,10 @@ class StealthActivity : ComponentActivity() {
                 return true
             }
             KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                if (viewModel.uiState.value.isSpeakingCooldownActive) {
+                    viewModel.processIntent(StealthUiIntent.DismissSpeakingCooldown)
+                    return true
+                }
                 if (event?.repeatCount == 0) {
                     volumeDownPressStartTime = System.currentTimeMillis()
                 } else if (event != null && event.repeatCount > 1) {
@@ -239,7 +263,10 @@ fun StealthScreen(
     onSelectEngine: (EngineType) -> Unit,
     onSelectLocalModel: (String) -> Unit,
     onTriggerDownload: (String) -> Unit,
-    onSaveGroqApiKey: (String) -> Unit = {}
+    onSaveGroqApiKey: (String) -> Unit = {},
+    onCycleGuidanceLanguage: () -> Unit = {},
+    onCyclePrompterStyle: () -> Unit = {},
+    onDismissSpeakingCooldown: () -> Unit = {}
 ) {
     val listState = rememberLazyListState()
     val palette = LocalStealthPalette.current
@@ -387,6 +414,37 @@ fun StealthScreen(
             )
         }
 
+        // Speaking Cooldown Pill (Floating above bottom controls)
+        if (uiState.isSpeakingCooldownActive && uiState.speakingCooldownRemainingSeconds > 0) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 76.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color(0xFF142418))
+                    .border(1.dp, palette.statusActive, RoundedCornerShape(20.dp))
+                    .clickable { onDismissSpeakingCooldown() }
+                    .padding(horizontal = 14.dp, vertical = 6.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(palette.statusActive)
+                    )
+                    Spacer(modifier = Modifier.width(7.dp))
+                    Text(
+                        text = "SPEAKING COOLDOWN: ${uiState.speakingCooldownRemainingSeconds}s • TAP TO UNMUTE",
+                        color = palette.statusActive,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+
         // Tools & Configuration Bottom Sheet (Clean 2026 Drawer)
         if (isToolsSheetOpen) {
             ToolsBottomSheet(
@@ -402,6 +460,8 @@ fun StealthScreen(
                 onOpenCarrierProfile = onToggleCarrierProfile,
                 onOpenMockSimulator = onToggleMockSimulator,
                 onOpenEngineSelection = onOpenEngineSelection,
+                onCycleGuidanceLanguage = onCycleGuidanceLanguage,
+                onCyclePrompterStyle = onCyclePrompterStyle,
                 onScenarioSelected = { prompt ->
                     isToolsSheetOpen = false
                     onScenarioSelected(prompt)

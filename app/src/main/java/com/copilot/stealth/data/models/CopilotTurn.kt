@@ -14,6 +14,8 @@ data class CopilotTurn(
     val transcriptRo: String? = null,
     val answerEn: String,
     val answerRo: String? = null,
+    val translationLangCode: String? = "RO",
+    val followUpQuestions: List<String> = emptyList(),
     val confidence: Float = 1.0f,
     val latencyMs: Long = 0L,
     val matchedCategory: String? = null
