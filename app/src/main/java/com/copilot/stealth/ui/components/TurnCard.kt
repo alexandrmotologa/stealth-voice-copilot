@@ -85,7 +85,7 @@ fun TurnCard(
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "CE A AUZIT (ÎNTREBARE)",
+                text = "HEARD (INTERLOCUTOR)",
                 color = palette.textMetadata,
                 fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace,
@@ -142,7 +142,7 @@ fun TurnCard(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "CE SĂ RĂSPUNZI (TELEPROMPTER)",
+                    text = "SUGGESTED ANSWER (TELEPROMPTER)",
                     color = palette.statusActive,
                     fontSize = 11.sp,
                     fontFamily = FontFamily.Monospace,
@@ -164,7 +164,7 @@ fun TurnCard(
                     .clickable {
                         clipboardManager.setText(AnnotatedString(turn.answerEn))
                         isCopied = true
-                        android.widget.Toast.makeText(context, "Copiat în clipboard", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, "Copied to clipboard", android.widget.Toast.LENGTH_SHORT).show()
                         scope.launch {
                             delay(1800)
                             isCopied = false
@@ -173,7 +173,7 @@ fun TurnCard(
                     .padding(horizontal = 7.dp, vertical = 3.dp)
             ) {
                 Text(
-                    text = if (isCopied) "COPIAT ✓" else "COPIAZĂ",
+                    text = if (isCopied) "COPIED ✓" else "COPY",
                     color = if (isCopied) palette.statusActive else palette.textMetadata,
                     fontSize = 9.sp,
                     fontFamily = FontFamily.Monospace,
@@ -216,7 +216,7 @@ fun TurnCard(
             ) {
                 Column {
                     Text(
-                        text = "CONTEXT & TRADUCERE (RO):",
+                        text = "CONTEXT & TRANSLATION (RO):",
                         color = palette.highlightAcronym,
                         fontSize = 10.sp,
                         fontFamily = FontFamily.Monospace,

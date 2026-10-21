@@ -320,7 +320,7 @@ fun StealthScreen(
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = if (uiState.isListening) "● TELEPROMPTER ÎN ASCULTARE PASIVĂ" else "TELEPROMPTER ÎN AȘTEPTARE",
+                                text = if (uiState.isListening) "● TELEPROMPTER: PASSIVE LISTENING" else "TELEPROMPTER: STANDBY",
                                 color = if (uiState.isListening) palette.statusActive else palette.textMetadata,
                                 fontSize = 12.sp,
                                 fontFamily = FontFamily.Monospace,
@@ -330,9 +330,9 @@ fun StealthScreen(
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = if (uiState.isListening)
-                                    "Microfonul ascultă pasiv interlocutorul.\nRăspunsul optim va apărea instant aici pe ecran."
+                                    "Microphone is listening passively.\nOptimal talking points will appear here instantly."
                                 else
-                                    "Atinge microfonul pentru a porni ascultarea pasivă.",
+                                    "Tap microphone to begin passive listening.",
                                 color = palette.textMetadata,
                                 fontSize = 12.sp,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -484,7 +484,7 @@ fun LiveTranscriptCard(
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "● ASCULTARE PASIVĂ (INTERVIEWER VORBEȘTE)",
+                text = "● PASSIVE LISTENING (SPEECH DETECTED)",
                 color = palette.statusActive,
                 fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace,
@@ -538,7 +538,7 @@ fun ProcessingPrompterCard(
             )
             Column {
                 Text(
-                    text = "TELEPROMPTER: SE GENEREAZĂ RĂSPUNSUL...",
+                    text = "TELEPROMPTER: GENERATING RESPONSE...",
                     color = palette.statusActive,
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
@@ -547,7 +547,7 @@ fun ProcessingPrompterCard(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "⚡ Groq Cloud LPU analizează întrebarea în sub-500ms",
+                    text = "⚡ Groq Cloud LPU synthesizing response in sub-500ms",
                     color = palette.textMetadata,
                     fontSize = 11.sp,
                     fontFamily = FontFamily.Monospace

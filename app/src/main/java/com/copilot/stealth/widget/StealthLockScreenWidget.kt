@@ -87,7 +87,7 @@ class StealthLockScreenWidget : AppWidgetProvider() {
         var isCurrentlyListening = false
         var lastCategory = "STEALTH VOICE COPILOT"
         var lastAnswerEn = "Ready for US freight dispatching & billing interview prompts."
-        var lastAnswerRo = "Apasă microfonul sau pornește ascultarea."
+        var lastAnswerRo = "Tap microphone or start listening."
         var lastLatencyMs = 53L
         var lastIsBt = false
 

@@ -87,7 +87,7 @@
             android:ellipsize="end"
             android:fontFamily="monospace"
             android:maxLines="1"
-            android:text="Apasă microfonul sau pornește ascultarea."
+            android:text="Tap microphone or start listening."
             android:textColor="#888888"
             android:textSize="10sp" />
     </LinearLayout>

@@ -475,9 +475,9 @@ private fun GroqApiKeyConfigCard(
 
                 Text(
                     text = if (hasKey) {
-                        "● ACTIVĂ (${currentApiKey.take(4)}...${currentApiKey.takeLast(4)})"
+                        "● ACTIVE (${currentApiKey.take(4)}...${currentApiKey.takeLast(4)})"
                     } else {
-                        "○ CHEIE LIPSĂ"
+                        "○ MISSING KEY"
                     },
                     color = if (hasKey) palette.statusActive else Color(0xFFE53935),
                     fontSize = 10.sp,
@@ -547,7 +547,7 @@ private fun GroqApiKeyConfigCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "PASTE DIN CLIPBOARD",
+                        text = "PASTE FROM CLIPBOARD",
                         color = palette.textMetadata,
                         fontSize = 10.sp,
                         fontFamily = FontFamily.Monospace,
@@ -571,7 +571,7 @@ private fun GroqApiKeyConfigCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = if (isSavedRecently) "SALVAT ✓" else "SALVEAZĂ CHEIA",
+                        text = if (isSavedRecently) "SAVED ✓" else "SAVE KEY",
                         color = if (isSavedRecently) Color.Black else palette.statusActive,
                         fontSize = 10.sp,
                         fontFamily = FontFamily.Monospace,
@@ -583,7 +583,7 @@ private fun GroqApiKeyConfigCard(
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = "Cheie gratuită de pe console.groq.com. Salvată strict pe telefon, niciodată pe GitHub.",
+                text = "Free API key from console.groq.com. Stored locally on device, never sent to GitHub.",
                 color = palette.textMetadata,
                 fontSize = 9.sp,
                 lineHeight = 13.sp

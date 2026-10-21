@@ -182,7 +182,7 @@ fun CarrierProfileSheet(
                 ) {
                     Column {
                         Text(
-                            text = "MOD LIBER / CONVERSAȚIE DESCHISĂ",
+                            text = "GLOBAL FREE / OPEN CONVERSATION",
                             color = palette.statusActive,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -190,7 +190,7 @@ fun CarrierProfileSheet(
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Asistent vocal inteligent neconstrâns. Oferă răspunsuri clare, naturale și concise la orice întrebare sau discuție, fără prezumții legate de profil sau companie.",
+                            text = "Unconstrained intelligent voice assistant. Delivers concise, natural answers to any query without domain or profile assumptions.",
                             color = palette.textMetadata,
                             fontSize = 12.sp,
                             lineHeight = 18.sp
@@ -209,14 +209,14 @@ fun CarrierProfileSheet(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Informațiile introduse aici rămân exclusiv pe telefonul tău în memorie privată.",
+                    text = "Information entered here is stored strictly on your device in private memory.",
                     color = palette.textMetadata.copy(alpha = 0.7f),
                     fontSize = 10.sp
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 MultiLineInputField(
                     value = candidateContext,
-                    placeholder = "Lipește aici rezumatul CV-ului tău, tehnologiile principale, proiectele cheie sau instrucțiuni pentru interviu...",
+                    placeholder = "Paste your resume summary, key technologies, notable projects, or interview instructions here...",
                     palette = palette,
                     onValueChange = { candidateContext = it }
                 )
@@ -232,14 +232,14 @@ fun CarrierProfileSheet(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Setează instrucțiuni specifice pentru inteligența artificială (ton, reguli, rol).",
+                    text = "Configure specific instructions for the AI assistant (tone, rules, persona).",
                     color = palette.textMetadata.copy(alpha = 0.7f),
                     fontSize = 10.sp
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 MultiLineInputField(
                     value = customPrompt,
-                    placeholder = "Introdu promptul tău personalizat aici (ex: 'Răspunde ca un Senior Architect specializat în sisteme distribuite...')...",
+                    placeholder = "Enter custom instructions here (e.g. 'Act as a Senior Distributed Systems Architect...')...",
                     palette = palette,
                     onValueChange = { customPrompt = it }
                 )
@@ -366,7 +366,7 @@ fun CarrierProfileSheet(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "SALVEAZĂ PROFILUL",
+                text = "SAVE PROFILE",
                 color = palette.background,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
