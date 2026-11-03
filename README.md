@@ -32,9 +32,18 @@ The entire processing pipeline runs strictly on-device without internet access, 
 
 ## Core Capabilities
 
-* **On-Device Speech Pipeline:** Combines Silero VAD v5 with Sherpa-ONNX Whisper and streaming models for rapid transcription directly on the Tensor G1 processor.
-* **Native Bilingual Speech Recognition:** Supports English, Romanian, and automatic bilingual speech-to-text with domain phonetic normalization.
-* **Google MediaPipe Tasks GenAI On-Device Engine:** Runs quantized LLMs (Llama 3.2 1B, Gemma 2 2B, SmolLM) natively on Google Tensor G1 NPU/GPU with instant sub-5ms fallback to the expert engine.
+* **Multi-Tier Hierarchical Inference Engine:** Routes queries across a resilient prioritized chain:
+  1. Google Gemini (Google AI Studio): Priority 1 cloud provider with 1M+ token context and 1,500 requests per day on the free tier (`gemini-2.5-flash`, `gemini-2.0-flash`).
+  2. Groq Cloud LPU: Fallback 1 provider with sub-250ms latency (`qwen/qwen3.8-27b`, `llama-3.3-70b-versatile`).
+  3. Gemini Alternative Retry: Fallback 2 attempt using secondary Flash variants.
+  4. On-Device Local Neural Model: Fallback 3 running quantized models (Llama 3.2 1B / Gemma 2 2B) natively on Google Tensor G1 NPU/GPU.
+  5. Offline Mode: Instant zero-latency bypass directly to the on-device model when no active internet connection is detected.
+* **Dynamic Multilingual Listening & Auto-Answer:** Adapts speech recognition to the user-selected language (Romanian, Spanish, German, French, Italian, Russian, Ukrainian, Polish, Portuguese, Turkish, English):
+  * Transcribes spoken audio in the source language and translates it into English.
+  * Evaluates whether the spoken input contains a question or inquiry.
+  * If a question is detected, automatically synthesizes structured English teleprompter talking points and source-language coaching notes.
+  * If a statement is detected, displays clean English translation context without generating artificial interview responses.
+* **On-Device Speech Pipeline:** Combines Silero VAD v5 with on-device speech recognition for continuous capture on the Tensor processor.
 * **Covert Whisper Earpiece Prompter:** Whispers concise numbers and key answer excerpts directly into connected Bluetooth earbuds (Pixel Buds) with zero speaker leakage.
 * **Carrier Profile Live Editor:** In-app AMOLED bottom sheet allowing instant customization of MC number, USDOT, fleet capacity, equipment types, and factoring details.
 * **Mock Interview Practice Simulator:** Integrated training mode generating randomized dispatch and billing scenarios, scoring candidate readiness from 0 to 100%.
@@ -46,7 +55,7 @@ The entire processing pipeline runs strictly on-device without internet access, 
 * **Encrypted Transcripts and Panic Wipe:** Exports full question-and-answer transcripts secured by AES-256-GCM encryption, while a rapid Volume Up double-click triggers an emergency panic wipe of RAM, disk cache, and clipboard.
 * **AMOLED True Black Overlay:** Renders directly over the lockscreen without requiring device unlock, using `#000000` background to minimize battery drain and reduce display illumination.
 * **Gesture-Interactive Floating HUD:** Provides a secondary discreet overlay mode with adjustable transparency and edge-minimize pill for Zoom or Google Meet.
-* **Covert Physical Controls:** Volume Up double-tap initiates panic wipe; Volume Down long-press toggles Romanian translations; Quick Settings tile enables one-tap activation from the lockscreen shade.
+* **Covert Physical Controls:** Volume Up double-tap initiates panic wipe; Volume Down long-press toggles coaching translations; Quick Settings tile enables one-tap activation from the lockscreen shade.
 * **Acoustic Preprocessing:** Leverages hardware-backed Acoustic Echo Cancellation (AEC) and Noise Suppression to filter HVAC hum and speaker echo.
 * **US Freight Domain Grounding:** Preloaded with industry practices covering Rate Confirmations, Bill of Lading (BOL), Proof of Delivery (POD), Factoring NOAs, Detention calculations, Layover fees, and TONU claims.
 

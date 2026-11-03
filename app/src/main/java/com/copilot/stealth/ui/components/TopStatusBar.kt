@@ -122,13 +122,36 @@ fun TopStatusBar(
 
         // Right: Active Engine Selector Pill + Settings trigger
         Row(verticalAlignment = Alignment.CenterVertically) {
+            val langCode = uiState.carrierProfile.guidanceLanguage.code
+            val langLabel = if (langCode != "OFF") "$langCode➔EN" else "EN"
+
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(0xFF141A1E))
+                    .border(1.dp, Color(0xFF233A48), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 5.dp, vertical = 3.dp)
+            ) {
+                Text(
+                    text = langLabel,
+                    color = Color(0xFF80D8FF),
+                    fontSize = 9.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.width(6.dp))
+
             val engineLabel = if (uiState.activeEngineType == EngineType.HYBRID) {
-                "GROQ (AI)"
+                if (uiState.geminiApiKey.isNotBlank()) "GEMINI (P1)"
+                else if (uiState.groqApiKey.isNotBlank()) "GROQ (FB1)"
+                else "CLOUD (SETUP)"
             } else {
                 if (uiState.preferredLocalModel.contains("llama", ignoreCase = true)) "LLAMA" else "GEMMA"
             }
             val engineColor = if (uiState.activeEngineType == EngineType.HYBRID) {
-                palette.statusActive
+                if (uiState.geminiApiKey.isNotBlank()) Color(0xFF64B5F6) else palette.statusActive
             } else {
                 palette.highlightAcronym
             }

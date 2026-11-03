@@ -18,18 +18,22 @@ enum class TeleprompterFontSize {
 }
 
 @Serializable
-enum class GuidanceLanguage(val displayName: String, val code: String) {
-    ROMANIAN("Romanian", "RO"),
-    SPANISH("Spanish", "ES"),
-    GERMAN("German", "DE"),
-    FRENCH("French", "FR"),
-    ITALIAN("Italian", "IT"),
-    RUSSIAN("Russian", "RU"),
-    UKRAINIAN("Ukrainian", "UA"),
-    POLISH("Polish", "PL"),
-    PORTUGUESE("Portuguese", "PT"),
-    TURKISH("Turkish", "TR"),
-    OFF("Disabled (English Only)", "OFF")
+enum class GuidanceLanguage(
+    val displayName: String,
+    val code: String,
+    val bcp47Locale: String = "ro-RO"
+) {
+    ROMANIAN("Romanian", "RO", "ro-RO"),
+    SPANISH("Spanish", "ES", "es-ES"),
+    GERMAN("German", "DE", "de-DE"),
+    FRENCH("French", "FR", "fr-FR"),
+    ITALIAN("Italian", "IT", "it-IT"),
+    RUSSIAN("Russian", "RU", "ru-RU"),
+    UKRAINIAN("Ukrainian", "UA", "uk-UA"),
+    POLISH("Polish", "PL", "pl-PL"),
+    PORTUGUESE("Portuguese", "PT", "pt-PT"),
+    TURKISH("Turkish", "TR", "tr-TR"),
+    OFF("Disabled (English Only)", "OFF", "en-US")
 }
 
 @Serializable

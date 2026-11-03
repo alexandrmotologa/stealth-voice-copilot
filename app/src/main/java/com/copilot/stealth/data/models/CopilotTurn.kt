@@ -18,5 +18,6 @@ data class CopilotTurn(
     val followUpQuestions: List<String> = emptyList(),
     val confidence: Float = 1.0f,
     val latencyMs: Long = 0L,
-    val matchedCategory: String? = null
+    val matchedCategory: String? = null,
+    val isQuestion: Boolean = true
 )

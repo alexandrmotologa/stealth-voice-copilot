@@ -22,7 +22,10 @@ sealed interface StealthUiIntent {
     data object PanicWipe : StealthUiIntent
     data object ExportTranscript : StealthUiIntent
     data class SaveCarrierProfile(val profile: CarrierProfile) : StealthUiIntent
+    data class SaveGeminiApiKey(val apiKey: String) : StealthUiIntent
+    data class SaveGeminiModel(val model: String) : StealthUiIntent
     data class SaveGroqApiKey(val apiKey: String) : StealthUiIntent
+    data object ToggleAutoAnswerOnly : StealthUiIntent
     data class SetFontSize(val fontSize: TeleprompterFontSize) : StealthUiIntent
     data class SetProfileMode(val mode: ProfileMode) : StealthUiIntent
     data class SetGuidanceLanguage(val language: GuidanceLanguage) : StealthUiIntent

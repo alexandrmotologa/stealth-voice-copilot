@@ -140,6 +140,8 @@ class StealthActivity : ComponentActivity() {
                     onSelectLocalModel = { name -> viewModel.processIntent(StealthUiIntent.SelectLocalModel(name)) },
                     onTriggerDownload = { id -> viewModel.processIntent(StealthUiIntent.TriggerModelDownload(id)) },
                     onSaveGroqApiKey = { key -> viewModel.processIntent(StealthUiIntent.SaveGroqApiKey(key)) },
+                    onSaveGeminiApiKey = { key -> viewModel.processIntent(StealthUiIntent.SaveGeminiApiKey(key)) },
+                    onSaveGeminiModel = { model -> viewModel.processIntent(StealthUiIntent.SaveGeminiModel(model)) },
                     onCycleGuidanceLanguage = {
                         val langs = GuidanceLanguage.values()
                         val current = uiState.carrierProfile.guidanceLanguage
@@ -264,6 +266,8 @@ fun StealthScreen(
     onSelectLocalModel: (String) -> Unit,
     onTriggerDownload: (String) -> Unit,
     onSaveGroqApiKey: (String) -> Unit = {},
+    onSaveGeminiApiKey: (String) -> Unit = {},
+    onSaveGeminiModel: (String) -> Unit = {},
     onCycleGuidanceLanguage: () -> Unit = {},
     onCyclePrompterStyle: () -> Unit = {},
     onDismissSpeakingCooldown: () -> Unit = {}
@@ -477,6 +481,8 @@ fun StealthScreen(
                 onSelectLocalModel = onSelectLocalModel,
                 onTriggerDownload = onTriggerDownload,
                 onSaveGroqApiKey = onSaveGroqApiKey,
+                onSaveGeminiApiKey = onSaveGeminiApiKey,
+                onSaveGeminiModel = onSaveGeminiModel,
                 onDismiss = onOpenEngineSelection
             )
         }

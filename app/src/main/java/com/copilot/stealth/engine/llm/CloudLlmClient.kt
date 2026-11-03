@@ -14,7 +14,7 @@ import java.net.URL
  * providing sub-250ms conversational intelligence to answer ANY question naturally.
  */
 class CloudLlmClient(
-    private var apiKey: String,
+    private var apiKey: String = "",
     private var modelName: String = "qwen/qwen3.8-27b",
     private var baseUrl: String = "https://api.groq.com/openai/v1/chat/completions"
 ) {
@@ -32,14 +32,15 @@ class CloudLlmClient(
         startTimeMs: Long = System.currentTimeMillis()
     ): CopilotTurn? = withContext(Dispatchers.IO) {
         if (apiKey.isBlank()) {
-            android.util.Log.w(TAG, "Groq API key is blank; skipping cloud inference")
+            android.util.Log.d(TAG, "Groq API key is blank; skipping cloud inference")
             return@withContext null
         }
 
         // Ordered list of candidate models on Groq Free Tier
         val candidateModels = listOf(
             modelName,
-            if (modelName == "qwen/qwen3.8-27b") "openai/gpt-oss-20b" else "qwen/qwen3.8-27b"
+            if (modelName == "qwen/qwen3.8-27b") "openai/gpt-oss-20b" else "qwen/qwen3.8-27b",
+            "llama-3.3-70b-versatile"
         ).distinct()
 
         for (candidate in candidateModels) {
@@ -79,7 +80,7 @@ class CloudLlmClient(
             for (turn in recentTurns.takeLast(2)) {
                 val userMsg = JSONObject().apply {
                     put("role", "user")
-                    put("content", turn.transcriptEn)
+                    put("content", turn.transcriptRo ?: turn.transcriptEn)
                 }
                 messagesArray.put(userMsg)
 
@@ -92,7 +93,7 @@ class CloudLlmClient(
 
             val currentMsg = JSONObject().apply {
                 put("role", "user")
-                put("content", "Question: $question")
+                put("content", "Utterance: $question")
             }
             messagesArray.put(currentMsg)
 
@@ -100,8 +101,8 @@ class CloudLlmClient(
                 put("model", targetModel)
                 put("messages", messagesArray)
                 put("temperature", 0.3)
-                // Set max_tokens to 400 so reasoning tokens or long answers don't get truncated
-                put("max_tokens", 400)
+                // Set max_tokens to 500 so reasoning tokens or long answers don't get truncated
+                put("max_tokens", 500)
                 if (useJsonMode) {
                     val respFormat = JSONObject().apply { put("type", "json_object") }
                     put("response_format", respFormat)
@@ -114,9 +115,9 @@ class CloudLlmClient(
                 setRequestProperty("Authorization", "Bearer $apiKey")
                 setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                 setRequestProperty("Accept", "application/json")
-                setRequestProperty("User-Agent", "StealthVoiceCopilot/1.0 (Android)")
-                connectTimeout = 4000
-                readTimeout = 6000
+                setRequestProperty("User-Agent", "StealthVoiceCopilot/1.0 (Android; Groq)")
+                connectTimeout = 3500
+                readTimeout = 5000
                 doOutput = true
                 doInput = true
             }
@@ -138,14 +139,14 @@ class CloudLlmClient(
                     val message = choices.getJSONObject(0).getJSONObject("message")
                     val rawContent = message.getString("content").trim()
 
-                    val parsed = parseJsonResponse(rawContent)
+                    val parsed = parseJsonResponse(rawContent, question)
                     val shortModelName = targetModel.substringAfterLast("/")
                     val langCode = if (profile.guidanceLanguage != com.copilot.stealth.data.models.GuidanceLanguage.OFF) {
                         profile.guidanceLanguage.code
                     } else null
 
                     return CopilotTurn(
-                        transcriptEn = question,
+                        transcriptEn = parsed.transcriptEn ?: question,
                         transcriptRo = parsed.transcriptRo,
                         answerEn = parsed.answerEn,
                         answerRo = parsed.answerRo,
@@ -153,7 +154,8 @@ class CloudLlmClient(
                         followUpQuestions = parsed.followUps,
                         confidence = 0.99f,
                         latencyMs = latency,
-                        matchedCategory = "AI Neural ($shortModelName)"
+                        matchedCategory = "AI Neural (Groq $shortModelName)",
+                        isQuestion = parsed.isQuestion
                     )
                 }
             } else {
@@ -167,13 +169,15 @@ class CloudLlmClient(
     }
 
     data class ParsedLlmResult(
+        val isQuestion: Boolean,
         val transcriptRo: String?,
+        val transcriptEn: String?,
         val answerEn: String,
         val answerRo: String?,
         val followUps: List<String> = emptyList()
     )
 
-    private fun parseJsonResponse(rawJson: String): ParsedLlmResult {
+    private fun parseJsonResponse(rawJson: String, originalPrompt: String): ParsedLlmResult {
         try {
             var text = rawJson.trim()
             if (text.startsWith("```json")) {
@@ -191,12 +195,26 @@ class CloudLlmClient(
                 val clean = text.substring(startIdx, endIdx + 1)
                 val json = JSONObject(clean)
                 val answerEn = json.optString("answer_en", "").trim()
+                val transcriptEn = if (json.has("transcript_en") && !json.isNull("transcript_en")) {
+                    json.getString("transcript_en").trim().takeIf { it.isNotBlank() && it != "null" }
+                } else null
                 val transcriptRo = if (json.has("transcript_ro") && !json.isNull("transcript_ro")) {
                     json.getString("transcript_ro").trim().takeIf { it.isNotBlank() && it != "null" }
                 } else null
                 val answerRo = if (json.has("answer_ro") && !json.isNull("answer_ro")) {
                     json.getString("answer_ro").trim().takeIf { it.isNotBlank() && it != "null" }
                 } else null
+
+                val isQuestion = if (json.has("is_question")) {
+                    json.optBoolean("is_question", true)
+                } else {
+                    originalPrompt.contains("?") ||
+                            originalPrompt.contains("care", ignoreCase = true) ||
+                            originalPrompt.contains("cum", ignoreCase = true) ||
+                            originalPrompt.contains("ce ", ignoreCase = true) ||
+                            originalPrompt.contains("what", ignoreCase = true) ||
+                            originalPrompt.contains("how", ignoreCase = true)
+                }
 
                 val followUps = mutableListOf<String>()
                 val followUpsArray = json.optJSONArray("follow_ups")
@@ -209,13 +227,27 @@ class CloudLlmClient(
                     }
                 }
 
-                if (answerEn.isNotBlank()) {
-                    return ParsedLlmResult(transcriptRo, answerEn, answerRo, followUps)
+                if (answerEn.isNotBlank() || !transcriptEn.isNullOrBlank()) {
+                    return ParsedLlmResult(
+                        isQuestion = isQuestion,
+                        transcriptRo = transcriptRo,
+                        transcriptEn = transcriptEn ?: originalPrompt,
+                        answerEn = if (answerEn.isNotBlank()) answerEn else (transcriptEn ?: originalPrompt),
+                        answerRo = answerRo,
+                        followUps = followUps
+                    )
                 }
             }
         } catch (_: Exception) {}
 
-        return ParsedLlmResult(null, rawJson.trim(), null, emptyList())
+        return ParsedLlmResult(
+            isQuestion = true,
+            transcriptRo = null,
+            transcriptEn = originalPrompt,
+            answerEn = rawJson.trim(),
+            answerRo = null,
+            followUps = emptyList()
+        )
     }
 
     companion object {

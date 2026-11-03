@@ -72,30 +72,52 @@ fun TurnCard(
             .border(1.dp, Color(0xFF222624), RoundedCornerShape(12.dp))
             .padding(16.dp)
     ) {
-        // Section 1: Question Heard / Interlocutor Context
+        // Section 1: Utterance Heard / Interlocutor Context (Multi-Language Source -> English)
+        val srcLang = turn.translationLangCode ?: "SOURCE"
+        val isQuestion = turn.isQuestion
+
         Row(
             modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(if (isQuestion) palette.statusActive else Color(0xFF64B5F6))
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = if (isQuestion) "QUESTION HEARD ($srcLang ➔ EN)" else "STATEMENT HEARD ($srcLang ➔ EN)",
+                    color = if (isQuestion) palette.textMetadata else Color(0xFF88A0B8),
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
+                )
+            }
+
             Box(
                 modifier = Modifier
-                    .size(6.dp)
-                    .clip(CircleShape)
-                    .background(palette.textMetadata)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = "HEARD (INTERLOCUTOR)",
-                color = palette.textMetadata,
-                fontSize = 11.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            )
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(if (isQuestion) Color(0xFF132819) else Color(0xFF101D28))
+                    .padding(horizontal = 5.dp, vertical = 2.dp)
+            ) {
+                Text(
+                    text = if (isQuestion) "Q&A CO-PILOT" else "TRANSLATION",
+                    color = if (isQuestion) palette.statusActive else Color(0xFF64B5F6),
+                    fontSize = 8.5.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(6.dp))
 
+        // English Translation (What it means in English)
         Text(
             text = turn.transcriptEn,
             color = palette.textQuestion,
@@ -104,14 +126,15 @@ fun TurnCard(
             lineHeight = 21.sp
         )
 
-        // Question Translation in Romanian (if enabled)
-        if (isRomanianEnabled && !turn.transcriptRo.isNullOrBlank()) {
+        // Original Utterance in Source Language (Romanian, Spanish, etc. if different from English)
+        if (!turn.transcriptRo.isNullOrBlank() && !turn.transcriptRo.equals(turn.transcriptEn, ignoreCase = true)) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = turn.transcriptRo,
+                text = "“${turn.transcriptRo}”",
                 color = palette.textRomanian.copy(alpha = 0.85f),
                 fontSize = 13.sp,
-                lineHeight = 17.sp
+                lineHeight = 17.sp,
+                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
             )
         }
 

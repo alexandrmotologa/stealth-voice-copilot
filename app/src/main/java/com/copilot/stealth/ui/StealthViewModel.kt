@@ -67,14 +67,20 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
     init {
         checkModelAvailability()
         val isFirstLaunch = !carrierProfileRepository.isInitialSetupCompleted()
+        val currentGeminiKey = carrierProfileRepository.getGeminiApiKey()
+        val currentGeminiModel = carrierProfileRepository.getGeminiModel()
         val currentGroqKey = carrierProfileRepository.getGroqApiKey()
         val currentProfile = carrierProfileRepository.getProfile()
+        val currentAutoAnswer = carrierProfileRepository.isQuestionAutoAnswerEnabled()
         _uiState.update {
             it.copy(
                 activeEngineType = carrierProfileRepository.getEngineType(),
                 preferredLocalModel = carrierProfileRepository.getPreferredLocalModel(),
                 isEngineSelectionOpen = isFirstLaunch,
+                geminiApiKey = currentGeminiKey,
+                geminiModel = currentGeminiModel,
                 groqApiKey = currentGroqKey,
+                isQuestionAutoAnswerEnabled = currentAutoAnswer,
                 carrierProfile = currentProfile,
                 guidanceLanguage = currentProfile.guidanceLanguage,
                 prompterStyle = currentProfile.prompterStyle
@@ -225,10 +231,25 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
                 downloadManager.startDownload(spec)
             }
             is StealthUiIntent.SaveCarrierProfile -> saveCarrierProfile(intent.profile)
+            is StealthUiIntent.SaveGeminiApiKey -> {
+                carrierProfileRepository.saveGeminiApiKey(intent.apiKey)
+                llmEngine.reloadCloudConfig()
+                _uiState.update { it.copy(geminiApiKey = intent.apiKey) }
+            }
+            is StealthUiIntent.SaveGeminiModel -> {
+                carrierProfileRepository.saveGeminiModel(intent.model)
+                llmEngine.reloadCloudConfig()
+                _uiState.update { it.copy(geminiModel = intent.model) }
+            }
             is StealthUiIntent.SaveGroqApiKey -> {
                 carrierProfileRepository.saveGroqApiKey(intent.apiKey)
                 llmEngine.reloadCloudConfig()
                 _uiState.update { it.copy(groqApiKey = intent.apiKey) }
+            }
+            is StealthUiIntent.ToggleAutoAnswerOnly -> {
+                val next = !_uiState.value.isQuestionAutoAnswerEnabled
+                carrierProfileRepository.saveQuestionAutoAnswerEnabled(next)
+                _uiState.update { it.copy(isQuestionAutoAnswerEnabled = next) }
             }
             is StealthUiIntent.SetFontSize -> {
                 val updated = _uiState.value.carrierProfile.copy(fontSize = intent.fontSize)
@@ -311,9 +332,10 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
         )
 
         val source = _uiState.value.audioInputSource
+        val targetLocale = _uiState.value.carrierProfile.guidanceLanguage.bcp47Locale
         if (source == AudioInputSource.MICROPHONE) {
-            // Live on-device Google SpeechRecognizer handles mic stream directly
-            nativeStt.startListening(_uiState.value.sttLanguageMode)
+            // Live on-device Google SpeechRecognizer handles mic stream in chosen language
+            nativeStt.startListening(_uiState.value.sttLanguageMode, targetLocale)
         } else if (source == AudioInputSource.SYSTEM_CALL) {
             audioCaptureJob = viewModelScope.launch(Dispatchers.Default) {
                 try {
@@ -479,6 +501,9 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
                 prompterStyle = profile.prompterStyle,
                 isCarrierProfileOpen = false
             )
+        }
+        if (_uiState.value.isListening && _uiState.value.audioInputSource == AudioInputSource.MICROPHONE) {
+            nativeStt.startListening(_uiState.value.sttLanguageMode, profile.guidanceLanguage.bcp47Locale)
         }
         hapticHelper.pulseAnswerReady()
     }

@@ -7,7 +7,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /**
- * Manages persistent storage and retrieval of carrier profile, Groq configuration,
+ * Manages persistent storage and retrieval of carrier profile, Gemini & Groq cloud configuration,
  * and user preferences for primary and local neural engines.
  */
 class CarrierProfileRepository(private val context: Context) {
@@ -29,6 +29,24 @@ class CarrierProfileRepository(private val context: Context) {
         prefs.edit().putString(KEY_PROFILE, serialized).apply()
     }
 
+    // Google AI Studio Gemini API Key
+    fun getGeminiApiKey(): String {
+        return prefs.getString(KEY_GEMINI_KEY, "") ?: ""
+    }
+
+    fun saveGeminiApiKey(key: String) {
+        prefs.edit().putString(KEY_GEMINI_KEY, key.trim()).apply()
+    }
+
+    fun getGeminiModel(): String {
+        return prefs.getString(KEY_GEMINI_MODEL, DEFAULT_GEMINI_MODEL) ?: DEFAULT_GEMINI_MODEL
+    }
+
+    fun saveGeminiModel(model: String) {
+        prefs.edit().putString(KEY_GEMINI_MODEL, model.trim()).apply()
+    }
+
+    // Groq API Key
     fun getGroqApiKey(): String {
         val stored = prefs.getString(KEY_GROQ_KEY, null)
         if (!stored.isNullOrBlank() && !stored.startsWith("gsk_flKkUxk8")) {
@@ -51,6 +69,15 @@ class CarrierProfileRepository(private val context: Context) {
 
     fun saveCloudModel(model: String) {
         prefs.edit().putString(KEY_CLOUD_MODEL, model.trim()).apply()
+    }
+
+    // Translation & Question Answering Preference
+    fun isQuestionAutoAnswerEnabled(): Boolean {
+        return prefs.getBoolean(KEY_AUTO_ANSWER_QUESTIONS, true)
+    }
+
+    fun saveQuestionAutoAnswerEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_AUTO_ANSWER_QUESTIONS, enabled).apply()
     }
 
     fun getEngineType(): EngineType {
@@ -85,12 +112,16 @@ class CarrierProfileRepository(private val context: Context) {
     companion object {
         private const val PREFS_NAME = "stealth_carrier_prefs"
         private const val KEY_PROFILE = "carrier_profile_data"
+        private const val KEY_GEMINI_KEY = "gemini_api_key"
+        private const val KEY_GEMINI_MODEL = "gemini_model_name"
         private const val KEY_GROQ_KEY = "groq_api_key"
         private const val KEY_CLOUD_MODEL = "cloud_model_name"
         private const val KEY_ENGINE_TYPE = "active_engine_type"
         private const val KEY_PREFERRED_LOCAL_MODEL = "preferred_local_model"
         private const val KEY_SETUP_COMPLETED = "initial_engine_setup_completed"
+        private const val KEY_AUTO_ANSWER_QUESTIONS = "auto_answer_questions_enabled"
 
+        const val DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
         const val DEFAULT_GROQ_KEY = ""
         const val DEFAULT_CLOUD_MODEL = "qwen/qwen3.8-27b"
     }

@@ -42,11 +42,16 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
     private var retryRunnable: Runnable? = null
     private var currentLanguageMode: com.copilot.stealth.data.models.SttLanguageMode =
         com.copilot.stealth.data.models.SttLanguageMode.ENGLISH
+    private var currentTargetLocale: String = "ro-RO"
 
     var onSpeechStatusChanged: ((isRecognizing: Boolean) -> Unit)? = null
 
-    fun startListening(languageMode: com.copilot.stealth.data.models.SttLanguageMode = com.copilot.stealth.data.models.SttLanguageMode.ENGLISH) {
+    fun startListening(
+        languageMode: com.copilot.stealth.data.models.SttLanguageMode = com.copilot.stealth.data.models.SttLanguageMode.ENGLISH,
+        targetLocale: String = "ro-RO"
+    ) {
         currentLanguageMode = languageMode
+        currentTargetLocale = targetLocale
         isContinuousListeningRequested = true
         startListeningInternal()
     }
@@ -76,15 +81,16 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
 
                 val primaryLang = when (currentLanguageMode) {
                     com.copilot.stealth.data.models.SttLanguageMode.ENGLISH -> "en-US"
-                    com.copilot.stealth.data.models.SttLanguageMode.ROMANIAN -> "ro-RO"
-                    com.copilot.stealth.data.models.SttLanguageMode.BILINGUAL_AUTO -> "en-US"
+                    com.copilot.stealth.data.models.SttLanguageMode.ROMANIAN -> currentTargetLocale
+                    com.copilot.stealth.data.models.SttLanguageMode.BILINGUAL_AUTO -> currentTargetLocale
                 }
 
                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE, primaryLang)
-                    if (currentLanguageMode == com.copilot.stealth.data.models.SttLanguageMode.BILINGUAL_AUTO && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        putExtra("android.speech.extra.ADDITIONAL_LANGUAGES", arrayOf("ro-RO", "en-US"))
+                    val additionalLangs = if (primaryLang != "en-US") arrayOf(primaryLang, "en-US") else arrayOf("en-US")
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        putExtra("android.speech.extra.ADDITIONAL_LANGUAGES", additionalLangs)
                     }
                     putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                     putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)

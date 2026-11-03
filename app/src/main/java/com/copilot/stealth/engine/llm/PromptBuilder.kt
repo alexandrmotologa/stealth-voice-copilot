@@ -7,8 +7,9 @@ import com.copilot.stealth.data.models.ProfileMode
 import com.copilot.stealth.data.models.PrompterStyle
 
 /**
- * Constructs prompt templates for on-device and cloud LLM execution,
- * providing direct, natural spoken answers with customizable profile grounding.
+ * Constructs prompt templates for on-device and cloud LLM execution (Gemini, Groq, Local Neural),
+ * providing real-time Romanian-to-English translation, intelligent question detection,
+ * and direct natural spoken answers with customizable profile grounding.
  */
 object PromptBuilder {
 
@@ -67,10 +68,10 @@ object PromptBuilder {
 
         val formatRule = when (profile.prompterStyle) {
             PrompterStyle.ANCHOR_BULLETS -> """
-                1. In 'answer_en', provide a natural conversational opening hook sentence, followed by 2-3 crisp bullet points starting with '• ' highlighting key technical principles, tradeoffs, or metrics in bold/caps so the candidate can glance and talk naturally.
+                - In 'answer_en', provide a natural conversational opening hook sentence, followed by 2-3 crisp bullet points starting with '• ' highlighting key technical principles, tradeoffs, or metrics in bold/caps so the speaker can glance and talk naturally.
             """.trimIndent()
             PrompterStyle.FULL_SENTENCE -> """
-                1. In 'answer_en', provide 1 to 2 fluent, confident, natural spoken broadcast English sentences that can be read aloud verbatim off the screen.
+                - In 'answer_en', provide 1 to 2 fluent, confident, natural spoken broadcast English sentences that can be read aloud verbatim off the screen.
             """.trimIndent()
         }
 
@@ -79,26 +80,42 @@ object PromptBuilder {
 
         val languageRules = if (isGuidanceActive) {
             """
-            Rules:
-            $formatRule
-            2. In 'transcript_ro', provide a concise ${lang.displayName} translation of the heard question.
-            3. In 'answer_ro', provide a ${lang.displayName} coaching summary highlighting what points to emphasize.
-            4. In 'follow_ups', provide 1-2 likely technical follow-up questions the interviewer may ask next.
-            5. Output STRICT JSON only:
-            {"transcript_ro":"<${lang.displayName} translation>","answer_en":"<response>","answer_ro":"<${lang.displayName} coaching>","follow_ups":["<likely follow-up 1>","<likely follow-up 2>"]}
+            MULTILINGUAL & QUESTION DETECTION PROTOCOL:
+            1. The interlocutor may speak in Romanian, English, or a mix. You must accurately understand both.
+            2. 'transcript_ro': The spoken Romanian transcript (or accurate Romanian translation if spoken in English).
+            3. 'transcript_en': Accurate, high-quality English translation of what was spoken (or original English if spoken in English).
+            4. 'is_question': Boolean (true if the utterance contains a question, inquiry, request for info, or interview problem; false if it is merely a statement, greeting acknowledgment, or monologue).
+            5. 'answer_en':
+               - IF is_question is true:
+                 $formatRule
+               - IF is_question is false:
+                 Provide a concise, fluent English translation and brief contextual reflection (do NOT fabricate an answer to a non-existent question).
+            6. 'answer_ro': Provide a ${lang.displayName} coaching summary highlighting what key points to emphasize.
+            7. 'follow_ups': 1-2 likely technical follow-up questions if it is a question, or empty list if not.
+            8. Output STRICT JSON only:
+            {"is_question":true,"transcript_ro":"<${lang.displayName} text>","transcript_en":"<English translation>","answer_en":"<English response>","answer_ro":"<${lang.displayName} coaching>","follow_ups":["<follow-up 1>","<follow-up 2>"]}
             """.trimIndent()
         } else {
             """
-            Rules:
-            $formatRule
-            2. In 'follow_ups', provide 1-2 likely technical follow-up questions the interviewer may ask next.
-            3. Output STRICT JSON only:
-            {"transcript_ro":null,"answer_en":"<response>","answer_ro":null,"follow_ups":["<likely follow-up 1>","<likely follow-up 2>"]}
+            MULTILINGUAL & QUESTION DETECTION PROTOCOL:
+            1. The interlocutor may speak in Romanian, English, or a mix.
+            2. 'transcript_ro': null
+            3. 'transcript_en': Accurate, high-quality English translation of what was spoken (or original English).
+            4. 'is_question': Boolean (true if the utterance contains a question or inquiry; false if statement).
+            5. 'answer_en':
+               - IF is_question is true:
+                 $formatRule
+               - IF is_question is false:
+                 Provide concise English translation / reflection.
+            6. 'answer_ro': null
+            7. 'follow_ups': 1-2 likely technical follow-up questions if question, or empty list if not.
+            8. Output STRICT JSON only:
+            {"is_question":true,"transcript_ro":null,"transcript_en":"<English translation>","answer_en":"<English response>","answer_ro":null,"follow_ups":["<follow-up 1>","<follow-up 2>"]}
             """.trimIndent()
         }
 
         return """
-            You are a discreet, intelligent real-time voice teleprompter assistant helping in live interviews and discussions.
+            You are a discreet, intelligent real-time voice teleprompter and translation assistant helping in live interviews and discussions.
             
             $identityGrounding
             
@@ -114,7 +131,8 @@ object PromptBuilder {
     ): String {
         val historyContext = if (recentTurns.isNotEmpty()) {
             val formattedTurns = recentTurns.takeLast(2).joinToString("\n") { turn ->
-                "Q: ${turn.transcriptEn}\nA: ${turn.answerEn}"
+                val q = turn.transcriptRo ?: turn.transcriptEn
+                "Q: $q\nA: ${turn.answerEn}"
             }
             "Previous context:\n$formattedTurns\n\n"
         } else {
@@ -124,7 +142,7 @@ object PromptBuilder {
         return """
             ${buildSystemPrompt(isRomanianEnabled, profile)}
             
-            ${historyContext}Current Question: $currentQuestion
+            ${historyContext}Current Utterance: $currentQuestion
             
             Respond with JSON only:
         """.trimIndent()
