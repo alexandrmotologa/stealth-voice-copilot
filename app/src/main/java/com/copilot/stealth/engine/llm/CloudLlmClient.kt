@@ -11,17 +11,78 @@ import java.net.URL
 
 /**
  * Ultra-fast cloud inference client (Groq LPU / OpenAI-compatible)
- * providing sub-250ms conversational intelligence to answer ANY question naturally.
+ * providing sub-250ms conversational intelligence with completely free production models:
+ * - llama-3.3-70b-versatile (Flagship Free Meta model, 128k context, advanced reasoning)
+ * - llama-3.1-8b-instant (Sub-150ms ultra low latency)
  */
 class CloudLlmClient(
     private var apiKey: String = "",
-    private var modelName: String = "qwen/qwen3.8-27b",
+    private var modelName: String = DEFAULT_GROQ_MODEL,
     private var baseUrl: String = "https://api.groq.com/openai/v1/chat/completions"
 ) {
 
     fun updateConfig(newApiKey: String, newModelName: String = modelName) {
         if (newApiKey.isNotBlank()) apiKey = newApiKey.trim()
         if (newModelName.isNotBlank()) modelName = newModelName.trim()
+    }
+
+    /**
+     * Tests the provided Groq API key by querying Groq's models endpoint.
+     * Returns the list of free active models available on the user's account.
+     */
+    suspend fun fetchAvailableModels(apiKey: String): Result<List<String>> = withContext(Dispatchers.IO) {
+        val cleanKey = apiKey.trim()
+        if (cleanKey.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("Groq API key is blank"))
+        }
+
+        try {
+            val url = URL("https://api.groq.com/openai/v1/models")
+            val connection = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                setRequestProperty("Authorization", "Bearer $cleanKey")
+                setRequestProperty("Accept", "application/json")
+                setRequestProperty("User-Agent", "StealthVoiceCopilot/1.0 (Android; Groq)")
+                connectTimeout = 4000
+                readTimeout = 6000
+                doInput = true
+            }
+
+            val responseCode = connection.responseCode
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                val responseText = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                val rootJson = JSONObject(responseText)
+                val dataArray = rootJson.optJSONArray("data") ?: JSONArray()
+
+                val modelIds = mutableListOf<String>()
+                for (i in 0 until dataArray.length()) {
+                    val mObj = dataArray.optJSONObject(i) ?: continue
+                    val id = mObj.optString("id", "")
+                    if (id.isNotBlank() && !id.contains("whisper", ignoreCase = true) && !id.contains("embedding", ignoreCase = true)) {
+                        modelIds.add(id)
+                    }
+                }
+
+                // Sort models prioritizing flagship free models
+                val sorted = modelIds.sortedWith(
+                    compareByDescending<String> { it.contains("llama-3.3-70b") }
+                        .thenByDescending { it.contains("llama-3.1-8b") }
+                        .thenByDescending { it.contains("gemma2") }
+                        .thenBy { it }
+                )
+
+                if (sorted.isNotEmpty()) {
+                    Result.success(sorted)
+                } else {
+                    Result.success(listOf("llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"))
+                }
+            } else {
+                val err = connection.errorStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: "HTTP $responseCode"
+                Result.failure(Exception("HTTP $responseCode: $err"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     suspend fun generateResponse(
@@ -36,11 +97,12 @@ class CloudLlmClient(
             return@withContext null
         }
 
-        // Ordered list of candidate models on Groq Free Tier
+        // 100% Free Tier production models on Groq
         val candidateModels = listOf(
             modelName,
-            if (modelName == "qwen/qwen3.8-27b") "openai/gpt-oss-20b" else "qwen/qwen3.8-27b",
-            "llama-3.3-70b-versatile"
+            DEFAULT_GROQ_MODEL,
+            FAST_FALLBACK_MODEL,
+            "gemma2-9b-it"
         ).distinct()
 
         for (candidate in candidateModels) {
@@ -101,7 +163,6 @@ class CloudLlmClient(
                 put("model", targetModel)
                 put("messages", messagesArray)
                 put("temperature", 0.3)
-                // Set max_tokens to 500 so reasoning tokens or long answers don't get truncated
                 put("max_tokens", 500)
                 if (useJsonMode) {
                     val respFormat = JSONObject().apply { put("type", "json_object") }
@@ -252,5 +313,7 @@ class CloudLlmClient(
 
     companion object {
         private const val TAG = "CloudLlmClient"
+        const val DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+        const val FAST_FALLBACK_MODEL = "llama-3.1-8b-instant"
     }
 }

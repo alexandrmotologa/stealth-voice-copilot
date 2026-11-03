@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudQueue
@@ -28,6 +29,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -60,8 +64,13 @@ fun EngineSelectionDialog(
     onSelectLocalModel: (String) -> Unit,
     onTriggerDownload: (String) -> Unit,
     onSaveGroqApiKey: (String) -> Unit = {},
+    onSaveGroqModel: (String) -> Unit = {},
+    onTestGroqKey: (String) -> Unit = {},
     onSaveGeminiApiKey: (String) -> Unit = {},
+    onSaveGeminiBackupApiKey: (String) -> Unit = {},
     onSaveGeminiModel: (String) -> Unit = {},
+    onSaveGeminiFallbackModel: (String) -> Unit = {},
+    onTestGeminiKey: (String) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val palette = LocalStealthPalette.current
@@ -134,7 +143,7 @@ fun EngineSelectionDialog(
                 val isHybridSelected = uiState.activeEngineType == EngineType.HYBRID
                 EngineCard(
                     title = "Cloud AI (Gemini Priority + Groq Fallback)",
-                    subtitle = "Gemini 1M Context (P1) • Groq LPU Sub-250ms • Auto-Fallback",
+                    subtitle = "Gemini 1M Context (P1) • Groq LPU Sub-250ms • Multi-tier Failover",
                     tag = "RECOMMENDED",
                     tagColor = palette.statusActive,
                     icon = Icons.Default.CloudQueue,
@@ -165,7 +174,7 @@ fun EngineSelectionDialog(
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Online: 1. Gemini (P1) ➔ 2. Groq (FB1) ➔ 3. Gemini Retry ➔ 4. Local Model\nOffline: Instant zero-latency handoff to Local On-Device Neural Model.",
+                                text = "Online: 1. Gemini (P1) ➔ 2. Groq (FB1) ➔ 3. Gemini Fallback ➔ 4. Local Model\nOffline: Instant zero-latency handoff to Local On-Device Neural Model.",
                                 color = palette.textMetadata,
                                 fontSize = 10.sp,
                                 lineHeight = 14.sp
@@ -177,10 +186,18 @@ fun EngineSelectionDialog(
 
                     // Priority 1: Gemini (Google AI Studio)
                     GeminiApiKeyConfigCard(
-                        currentApiKey = uiState.geminiApiKey,
-                        currentModel = uiState.geminiModel,
-                        onSaveApiKey = onSaveGeminiApiKey,
-                        onSaveModel = onSaveGeminiModel
+                        primaryApiKey = uiState.geminiApiKey,
+                        backupApiKey = uiState.geminiBackupApiKey,
+                        primaryModel = uiState.geminiModel,
+                        fallbackModel = uiState.geminiFallbackModel,
+                        availableModels = uiState.availableGeminiModels,
+                        isTesting = uiState.isTestingGeminiKey,
+                        testMessage = uiState.geminiKeyTestMessage,
+                        onSavePrimaryApiKey = onSaveGeminiApiKey,
+                        onSaveBackupApiKey = onSaveGeminiBackupApiKey,
+                        onSavePrimaryModel = onSaveGeminiModel,
+                        onSaveFallbackModel = onSaveGeminiFallbackModel,
+                        onTestKey = onTestGeminiKey
                     )
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -188,7 +205,13 @@ fun EngineSelectionDialog(
                     // Fallback 1: Groq Cloud LPU
                     GroqApiKeyConfigCard(
                         currentApiKey = uiState.groqApiKey,
-                        onSaveApiKey = onSaveGroqApiKey
+                        currentModel = uiState.groqModel,
+                        availableModels = uiState.availableGroqModels,
+                        isTesting = uiState.isTestingGroqKey,
+                        testMessage = uiState.groqKeyTestMessage,
+                        onSaveApiKey = onSaveGroqApiKey,
+                        onSaveModel = onSaveGroqModel,
+                        onTestKey = onTestGroqKey
                     )
                 }
 
@@ -265,6 +288,581 @@ fun EngineSelectionDialog(
                         letterSpacing = 1.sp
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModelDropdownSelector(
+    label: String,
+    selectedModel: String,
+    availableModels: List<String>,
+    accentColor: Color,
+    onSelectModel: (String) -> Unit
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = label,
+            color = Color(0xFF88A0B8),
+            fontSize = 9.sp,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(3.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color(0xFF070B0E))
+                .border(1.dp, if (isExpanded) accentColor else Color(0xFF1E262E), RoundedCornerShape(6.dp))
+                .clickable { isExpanded = !isExpanded }
+                .padding(horizontal = 10.dp, vertical = 7.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = selectedModel.ifBlank { "Select model..." },
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = "Expand",
+                    tint = accentColor,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            DropdownMenu(
+                expanded = isExpanded,
+                onDismissRequest = { isExpanded = false },
+                modifier = Modifier
+                    .background(Color(0xFF0F151C))
+                    .border(1.dp, Color(0xFF22303E), RoundedCornerShape(8.dp))
+            ) {
+                val modelsToShow = if (availableModels.isNotEmpty()) availableModels else listOf(selectedModel)
+                modelsToShow.distinct().forEach { modelName ->
+                    val isCurrent = modelName == selectedModel
+                    DropdownMenuItem(
+                        text = {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = modelName,
+                                    color = if (isCurrent) accentColor else Color.White,
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal
+                                )
+                                if (isCurrent) {
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Selected",
+                                        tint = accentColor,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
+                        },
+                        onClick = {
+                            onSelectModel(modelName)
+                            isExpanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GeminiApiKeyConfigCard(
+    primaryApiKey: String,
+    backupApiKey: String,
+    primaryModel: String,
+    fallbackModel: String,
+    availableModels: List<String>,
+    isTesting: Boolean,
+    testMessage: String?,
+    onSavePrimaryApiKey: (String) -> Unit,
+    onSaveBackupApiKey: (String) -> Unit,
+    onSavePrimaryModel: (String) -> Unit,
+    onSaveFallbackModel: (String) -> Unit,
+    onTestKey: (String) -> Unit
+) {
+    val clipboardManager = LocalClipboardManager.current
+    var inputKey by remember(primaryApiKey) { mutableStateOf(primaryApiKey) }
+    var inputBackupKey by remember(backupApiKey) { mutableStateOf(backupApiKey) }
+    var selectedPrimaryModel by remember(primaryModel) { mutableStateOf(primaryModel) }
+    var selectedFallbackModel by remember(fallbackModel) { mutableStateOf(fallbackModel) }
+    var isSavedRecently by remember { mutableStateOf(false) }
+
+    val hasPrimary = primaryApiKey.isNotBlank()
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFF0B1218))
+            .border(
+                1.dp,
+                if (hasPrimary) Color(0xFF1E88E5).copy(alpha = 0.6f) else Color(0xFF382222),
+                RoundedCornerShape(10.dp)
+            )
+            .padding(12.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(if (hasPrimary) Color(0xFF1E88E5) else Color(0xFFE53935))
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "GOOGLE GEMINI (PRIORITY 1)",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+
+                Text(
+                    text = if (hasPrimary) {
+                        "● READY (${primaryApiKey.take(4)}...)"
+                    } else {
+                        "○ NOT SET"
+                    },
+                    color = if (hasPrimary) Color(0xFF64B5F6) else Color(0xFF9E9E9E),
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "1M+ Token Context • 1,500 RPD Free Tier • aistudio.google.com",
+                color = Color(0xFF88A0B8),
+                fontSize = 10.sp
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Primary Key Field Label & Input
+            Text(
+                text = "PRIMARY GEMINI API KEY:",
+                color = Color(0xFF7A8D9E),
+                fontSize = 9.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color(0xFF05080C))
+                    .border(1.dp, Color(0xFF1A2633), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 10.dp, vertical = 7.dp)
+            ) {
+                if (inputKey.isEmpty()) {
+                    Text(text = "AIzaSy...", color = Color(0xFF4A5D6E), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                }
+                BasicTextField(
+                    value = inputKey,
+                    onValueChange = { inputKey = it; isSavedRecently = false },
+                    textStyle = TextStyle(color = Color.White, fontSize = 11.sp, fontFamily = FontFamily.Monospace),
+                    cursorBrush = SolidColor(Color(0xFF1E88E5)),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Test Key & Fetch Models Button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(Color(0xFF132230))
+                        .border(1.dp, Color(0xFF1E88E5), RoundedCornerShape(5.dp))
+                        .clickable(enabled = !isTesting && inputKey.isNotBlank()) {
+                            onTestKey(inputKey.trim())
+                        }
+                        .padding(vertical = 7.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isTesting) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.size(12.dp), color = Color(0xFF64B5F6), strokeWidth = 1.5.dp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(text = "TESTING KEY...", color = Color(0xFF64B5F6), fontSize = 9.5.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        }
+                    } else {
+                        Text(
+                            text = "⚡ TEST KEY & FETCH MODELS",
+                            color = Color(0xFF64B5F6),
+                            fontSize = 9.5.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // Quick Paste button
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(Color(0xFF0F1822))
+                        .border(1.dp, Color(0xFF223548), RoundedCornerShape(5.dp))
+                        .clickable {
+                            val clipText = clipboardManager.getText()?.text?.trim()
+                            if (!clipText.isNullOrBlank()) {
+                                inputKey = clipText
+                                isSavedRecently = false
+                            }
+                        }
+                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "PASTE", color = Color(0xFF90CAF9), fontSize = 9.5.sp, fontFamily = FontFamily.Monospace)
+                }
+            }
+
+            // Test Message Output
+            if (!testMessage.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                val isSuccess = testMessage.contains("Valid", ignoreCase = true)
+                Text(
+                    text = testMessage,
+                    color = if (isSuccess) Color(0xFF00FF66) else Color(0xFFFF5252),
+                    fontSize = 9.5.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Primary Model Dropdown
+            ModelDropdownSelector(
+                label = "PRIMARY MODEL (DEFAULT):",
+                selectedModel = selectedPrimaryModel,
+                availableModels = availableModels,
+                accentColor = Color(0xFF1E88E5),
+                onSelectModel = { model ->
+                    selectedPrimaryModel = model
+                    onSavePrimaryModel(model)
+                }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Fallback Model Dropdown
+            ModelDropdownSelector(
+                label = "FALLBACK MODEL (ON ERROR):",
+                selectedModel = selectedFallbackModel,
+                availableModels = availableModels,
+                accentColor = Color(0xFF64B5F6),
+                onSelectModel = { model ->
+                    selectedFallbackModel = model
+                    onSaveFallbackModel(model)
+                }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Optional Backup Key Field
+            Text(
+                text = "BACKUP GEMINI API KEY (OPTIONAL - DOUBLE QUOTA):",
+                color = Color(0xFF6B7E90),
+                fontSize = 8.5.sp,
+                fontFamily = FontFamily.Monospace
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color(0xFF05080C))
+                    .border(1.dp, Color(0xFF1A2633), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                if (inputBackupKey.isEmpty()) {
+                    Text(text = "Optional 2nd account key...", color = Color(0xFF394652), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                }
+                BasicTextField(
+                    value = inputBackupKey,
+                    onValueChange = { inputBackupKey = it; isSavedRecently = false },
+                    textStyle = TextStyle(color = Color.White, fontSize = 10.sp, fontFamily = FontFamily.Monospace),
+                    cursorBrush = SolidColor(Color(0xFF1E88E5)),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Save Gemini Button
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(if (isSavedRecently) Color(0xFF1E88E5) else Color(0xFF0D2840))
+                    .border(1.dp, Color(0xFF1E88E5), RoundedCornerShape(6.dp))
+                    .clickable {
+                        onSavePrimaryApiKey(inputKey.trim())
+                        onSaveBackupApiKey(inputBackupKey.trim())
+                        onSavePrimaryModel(selectedPrimaryModel)
+                        onSaveFallbackModel(selectedFallbackModel)
+                        isSavedRecently = true
+                    }
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (isSavedRecently) "SAVED GEMINI CONFIG ✓" else "SAVE GEMINI CONFIG",
+                    color = if (isSavedRecently) Color.White else Color(0xFF64B5F6),
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GroqApiKeyConfigCard(
+    currentApiKey: String,
+    currentModel: String,
+    availableModels: List<String>,
+    isTesting: Boolean,
+    testMessage: String?,
+    onSaveApiKey: (String) -> Unit,
+    onSaveModel: (String) -> Unit,
+    onTestKey: (String) -> Unit
+) {
+    val palette = LocalStealthPalette.current
+    val clipboardManager = LocalClipboardManager.current
+    var inputKey by remember(currentApiKey) { mutableStateOf(currentApiKey) }
+    var selectedModel by remember(currentModel) { mutableStateOf(currentModel) }
+    var isSavedRecently by remember { mutableStateOf(false) }
+
+    val hasKey = currentApiKey.isNotBlank()
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFF0C120E))
+            .border(
+                1.dp,
+                if (hasKey) palette.statusActive.copy(alpha = 0.5f) else Color(0xFF382222),
+                RoundedCornerShape(10.dp)
+            )
+            .padding(12.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(if (hasKey) palette.statusActive else Color(0xFFE53935))
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "GROQ CLOUD LPU (FALLBACK 1)",
+                        color = palette.textAnswer,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+
+                Text(
+                    text = if (hasKey) {
+                        "● READY (${currentApiKey.take(4)}...)"
+                    } else {
+                        "○ OPTIONAL"
+                    },
+                    color = if (hasKey) palette.statusActive else Color(0xFFE53935),
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Flagship Free: llama-3.3-70b-versatile (Smartest Free) & llama-3.1-8b-instant (Fastest)",
+                color = palette.textMetadata,
+                fontSize = 9.5.sp
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Key Input Box
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color(0xFF050505))
+                    .border(1.dp, Color(0xFF222222), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 10.dp, vertical = 7.dp)
+            ) {
+                if (inputKey.isEmpty()) {
+                    Text(text = "gsk_...", color = Color(0xFF555555), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                }
+                BasicTextField(
+                    value = inputKey,
+                    onValueChange = { inputKey = it; isSavedRecently = false },
+                    textStyle = TextStyle(color = palette.textAnswer, fontSize = 11.sp, fontFamily = FontFamily.Monospace),
+                    cursorBrush = SolidColor(palette.statusActive),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Test Key Button & Paste
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(Color(0xFF142418))
+                        .border(1.dp, palette.statusActive, RoundedCornerShape(5.dp))
+                        .clickable(enabled = !isTesting && inputKey.isNotBlank()) {
+                            onTestKey(inputKey.trim())
+                        }
+                        .padding(vertical = 7.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isTesting) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.size(12.dp), color = palette.statusActive, strokeWidth = 1.5.dp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(text = "TESTING KEY...", color = palette.statusActive, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        }
+                    } else {
+                        Text(
+                            text = "⚡ TEST KEY & FETCH MODELS",
+                            color = palette.statusActive,
+                            fontSize = 9.5.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(Color(0xFF1E1E1E))
+                        .border(1.dp, Color(0xFF333333), RoundedCornerShape(5.dp))
+                        .clickable {
+                            val clipText = clipboardManager.getText()?.text?.trim()
+                            if (!clipText.isNullOrBlank()) {
+                                inputKey = clipText
+                                isSavedRecently = false
+                            }
+                        }
+                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "PASTE", color = palette.textMetadata, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace)
+                }
+            }
+
+            // Test Message
+            if (!testMessage.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                val isSuccess = testMessage.contains("Valid", ignoreCase = true)
+                Text(
+                    text = testMessage,
+                    color = if (isSuccess) palette.statusActive else Color(0xFFFF5252),
+                    fontSize = 9.5.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Groq Model Dropdown Selector
+            ModelDropdownSelector(
+                label = "GROQ MODEL VARIANT (FREE PRODUCTION TIER):",
+                selectedModel = selectedModel,
+                availableModels = availableModels,
+                accentColor = palette.statusActive,
+                onSelectModel = { model ->
+                    selectedModel = model
+                    onSaveModel(model)
+                }
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Save Groq Button
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(if (isSavedRecently) palette.statusActive else Color(0xFF1C2D1F))
+                    .border(1.dp, palette.statusActive, RoundedCornerShape(6.dp))
+                    .clickable {
+                        onSaveApiKey(inputKey.trim())
+                        onSaveModel(selectedModel)
+                        isSavedRecently = true
+                    }
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (isSavedRecently) "SAVED GROQ CONFIG ✓" else "SAVE GROQ CONFIG",
+                    color = if (isSavedRecently) Color.Black else palette.statusActive,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
@@ -465,392 +1063,6 @@ private fun LocalModelRow(
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun GeminiApiKeyConfigCard(
-    currentApiKey: String,
-    currentModel: String,
-    onSaveApiKey: (String) -> Unit,
-    onSaveModel: (String) -> Unit
-) {
-    val palette = LocalStealthPalette.current
-    val clipboardManager = LocalClipboardManager.current
-    var inputKey by remember(currentApiKey) { mutableStateOf(currentApiKey) }
-    var selectedModel by remember(currentModel) { mutableStateOf(currentModel) }
-    var isSavedRecently by remember { mutableStateOf(false) }
-
-    val hasKey = currentApiKey.isNotBlank()
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFF0B1218))
-            .border(
-                1.dp,
-                if (hasKey) Color(0xFF1E88E5).copy(alpha = 0.6f) else Color(0xFF382222),
-                RoundedCornerShape(10.dp)
-            )
-            .padding(12.dp)
-    ) {
-        Column {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(7.dp)
-                            .clip(CircleShape)
-                            .background(if (hasKey) Color(0xFF1E88E5) else Color(0xFFE53935))
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "GEMINI (PRIORITY 1 CLOUD)",
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp
-                    )
-                }
-
-                Text(
-                    text = if (hasKey) {
-                        "● READY (${currentApiKey.take(4)}...${currentApiKey.takeLast(4)})"
-                    } else {
-                        "○ OPTIONAL (P1)"
-                    },
-                    color = if (hasKey) Color(0xFF64B5F6) else Color(0xFF9E9E9E),
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = "1M+ Token Context • 1,500 Requests/Day Free Tier • aistudio.google.com",
-                color = Color(0xFF88A0B8),
-                fontSize = 10.sp
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Key Input Box
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xFF05080C))
-                    .border(1.dp, Color(0xFF1A2633), RoundedCornerShape(6.dp))
-                    .padding(horizontal = 10.dp, vertical = 8.dp)
-            ) {
-                if (inputKey.isEmpty()) {
-                    Text(
-                        text = "AIzaSy...",
-                        color = Color(0xFF4A5D6E),
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
-                BasicTextField(
-                    value = inputKey,
-                    onValueChange = {
-                        inputKey = it
-                        isSavedRecently = false
-                    },
-                    textStyle = TextStyle(
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace
-                    ),
-                    cursorBrush = SolidColor(Color(0xFF1E88E5)),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Model Selection Chips
-            Text(
-                text = "MODEL VARIANT:",
-                color = Color(0xFF7A8D9E),
-                fontSize = 9.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                listOf(
-                    Pair("gemini-2.5-flash", "2.5 Flash (Fastest)"),
-                    Pair("gemini-2.0-flash", "2.0 Flash"),
-                    Pair("gemini-1.5-flash", "1.5 Flash")
-                ).forEach { (modelId, displayLabel) ->
-                    val isSelected = selectedModel == modelId
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(if (isSelected) Color(0xFF152A3C) else Color(0xFF0E161F))
-                            .border(
-                                1.dp,
-                                if (isSelected) Color(0xFF1E88E5) else Color(0xFF1B2836),
-                                RoundedCornerShape(4.dp)
-                            )
-                            .clickable {
-                                selectedModel = modelId
-                                onSaveModel(modelId)
-                            }
-                            .padding(vertical = 5.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = displayLabel,
-                            color = if (isSelected) Color(0xFF90CAF9) else Color(0xFF6B7E90),
-                            fontSize = 8.5.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Actions row: Paste & Save
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Paste button
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFF111C26))
-                        .border(1.dp, Color(0xFF203243), RoundedCornerShape(6.dp))
-                        .clickable {
-                            val clipText = clipboardManager.getText()?.text?.trim()
-                            if (!clipText.isNullOrBlank()) {
-                                inputKey = clipText
-                                isSavedRecently = false
-                            }
-                        }
-                        .padding(vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "PASTE KEY",
-                        color = Color(0xFF90CAF9),
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                // Save button
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(if (isSavedRecently) Color(0xFF1E88E5) else Color(0xFF0D2840))
-                        .border(1.dp, Color(0xFF1E88E5), RoundedCornerShape(6.dp))
-                        .clickable {
-                            val trimmed = inputKey.trim()
-                            onSaveApiKey(trimmed)
-                            onSaveModel(selectedModel)
-                            isSavedRecently = true
-                        }
-                        .padding(vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (isSavedRecently) "SAVED ✓" else "SAVE GEMINI KEY",
-                        color = if (isSavedRecently) Color.White else Color(0xFF64B5F6),
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun GroqApiKeyConfigCard(
-    currentApiKey: String,
-    onSaveApiKey: (String) -> Unit
-) {
-    val palette = LocalStealthPalette.current
-    val clipboardManager = LocalClipboardManager.current
-    var inputKey by remember(currentApiKey) { mutableStateOf(currentApiKey) }
-    var isSavedRecently by remember { mutableStateOf(false) }
-
-    val hasKey = currentApiKey.isNotBlank()
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFF0C120E))
-            .border(
-                1.dp,
-                if (hasKey) palette.statusActive.copy(alpha = 0.5f) else Color(0xFF382222),
-                RoundedCornerShape(10.dp)
-            )
-            .padding(12.dp)
-    ) {
-        Column {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(7.dp)
-                            .clip(CircleShape)
-                            .background(if (hasKey) palette.statusActive else Color(0xFFE53935))
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "GROQ API KEY",
-                        color = palette.textAnswer,
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp
-                    )
-                }
-
-                Text(
-                    text = if (hasKey) {
-                        "● ACTIVE (${currentApiKey.take(4)}...${currentApiKey.takeLast(4)})"
-                    } else {
-                        "○ MISSING KEY"
-                    },
-                    color = if (hasKey) palette.statusActive else Color(0xFFE53935),
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Key Input Box
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xFF050505))
-                    .border(1.dp, Color(0xFF222222), RoundedCornerShape(6.dp))
-                    .padding(horizontal = 10.dp, vertical = 8.dp)
-            ) {
-                if (inputKey.isEmpty()) {
-                    Text(
-                        text = "gsk_...",
-                        color = Color(0xFF555555),
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
-                BasicTextField(
-                    value = inputKey,
-                    onValueChange = {
-                        inputKey = it
-                        isSavedRecently = false
-                    },
-                    textStyle = TextStyle(
-                        color = palette.textAnswer,
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace
-                    ),
-                    cursorBrush = SolidColor(palette.statusActive),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Actions row: Paste & Save
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Paste button
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFF1E1E1E))
-                        .border(1.dp, Color(0xFF333333), RoundedCornerShape(6.dp))
-                        .clickable {
-                            val clipText = clipboardManager.getText()?.text?.trim()
-                            if (!clipText.isNullOrBlank()) {
-                                inputKey = clipText
-                                isSavedRecently = false
-                            }
-                        }
-                        .padding(vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "PASTE FROM CLIPBOARD",
-                        color = palette.textMetadata,
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                // Save button
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(if (isSavedRecently) palette.statusActive else Color(0xFF1C2D1F))
-                        .border(1.dp, palette.statusActive, RoundedCornerShape(6.dp))
-                        .clickable {
-                            val trimmed = inputKey.trim()
-                            onSaveApiKey(trimmed)
-                            isSavedRecently = true
-                        }
-                        .padding(vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (isSavedRecently) "SAVED ✓" else "SAVE KEY",
-                        color = if (isSavedRecently) Color.Black else palette.statusActive,
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = "Free API key from console.groq.com. Stored locally on device, never sent to GitHub.",
-                color = palette.textMetadata,
-                fontSize = 9.sp,
-                lineHeight = 13.sp
-            )
         }
     }
 }

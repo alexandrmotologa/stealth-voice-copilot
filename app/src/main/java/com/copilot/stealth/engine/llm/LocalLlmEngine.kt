@@ -19,10 +19,11 @@ import java.io.File
  *    - If no internet and no local model -> Returns clear offline status notice.
  *
  * 2. Online Mode (Hierarchical Fallback):
- *    - Priority 1: Google Gemini (Google AI Studio) - 1M+ context, high rate limits.
- *    - Fallback 1: Groq Cloud LPU (Sub-250ms latency) if Gemini encounters any error.
- *    - Fallback 2: Gemini Retry (alternative Flash model) if Groq also fails.
- *    - Fallback 3: On-Device Local Neural Model (Llama 3.2 1B / Gemma 2 2B) if cloud fails.
+ *    - Priority 1: Google Gemini (Primary Key + Primary Model, e.g. gemini-2.5-flash).
+ *                  Auto-fails over to Gemini Backup Key if primary key quota (429) is exhausted.
+ *    - Fallback 1: Groq Cloud LPU (Flagship Free Tier: llama-3.3-70b-versatile / llama-3.1-8b-instant).
+ *    - Fallback 2: Gemini Fallback Model (e.g. gemini-2.0-flash / gemini-1.5-flash).
+ *    - Fallback 3: On-Device Local Neural Model (Llama 3.2 1B / Gemma 2 2B).
  */
 class LocalLlmEngine(
     private val context: Context,
@@ -32,12 +33,14 @@ class LocalLlmEngine(
     private val modelManager = LocalModelManager(context)
     private val neuralRunner = LocalNeuralRunner(context)
 
-    private val geminiClient = GeminiLlmClient(
-        apiKey = carrierProfileRepository.getGeminiApiKey(),
-        modelName = carrierProfileRepository.getGeminiModel()
+    val geminiClient = GeminiLlmClient(
+        primaryApiKey = carrierProfileRepository.getGeminiApiKey(),
+        backupApiKey = carrierProfileRepository.getGeminiBackupApiKey(),
+        primaryModel = carrierProfileRepository.getGeminiModel(),
+        fallbackModel = carrierProfileRepository.getGeminiFallbackModel()
     )
 
-    private val groqClient = CloudLlmClient(
+    val groqClient = CloudLlmClient(
         apiKey = carrierProfileRepository.getGroqApiKey(),
         modelName = carrierProfileRepository.getCloudModel()
     )
@@ -82,8 +85,10 @@ class LocalLlmEngine(
 
     fun reloadCloudConfig() {
         geminiClient.updateConfig(
-            newApiKey = carrierProfileRepository.getGeminiApiKey(),
-            newModelName = carrierProfileRepository.getGeminiModel()
+            newPrimaryApiKey = carrierProfileRepository.getGeminiApiKey(),
+            newBackupApiKey = carrierProfileRepository.getGeminiBackupApiKey(),
+            newPrimaryModel = carrierProfileRepository.getGeminiModel(),
+            newFallbackModel = carrierProfileRepository.getGeminiFallbackModel()
         )
         groqClient.updateConfig(
             newApiKey = carrierProfileRepository.getGroqApiKey(),
@@ -146,13 +151,15 @@ class LocalLlmEngine(
         }
 
         val geminiKey = carrierProfileRepository.getGeminiApiKey().trim()
+        val geminiBackupKey = carrierProfileRepository.getGeminiBackupApiKey().trim()
         val groqKey = carrierProfileRepository.getGroqApiKey().trim()
 
         // ==========================================
         // RULE 3: ONLINE HIERARCHICAL FALLBACK
-        // Step 1: Gemini (Priority 1 - Google AI Studio)
+        // Step 1: Gemini (Priority 1 - Google AI Studio Primary Model)
+        // Automatically fails over to backup key if configured and primary quota is exhausted.
         // ==========================================
-        if (geminiKey.isNotBlank()) {
+        if (geminiKey.isNotBlank() || geminiBackupKey.isNotBlank()) {
             try {
                 val geminiResult = geminiClient.generateResponse(
                     question = question,
@@ -160,12 +167,12 @@ class LocalLlmEngine(
                     isRomanianEnabled = isRomanianEnabled,
                     profile = profile,
                     startTimeMs = startTime,
-                    isRetry = false
+                    forceFallbackModel = false
                 )
                 if (geminiResult != null) {
                     return@withContext geminiResult
                 }
-                android.util.Log.w(TAG, "Gemini inference failed or timed out. Falling back to Groq...")
+                android.util.Log.w(TAG, "Gemini Primary Model failed or timed out. Falling back to Groq...")
             } catch (e: Exception) {
                 android.util.Log.w(TAG, "Gemini invocation exception: ${e.message}. Proceeding to Groq fallback...")
             }
@@ -173,6 +180,7 @@ class LocalLlmEngine(
 
         // ==========================================
         // Step 2: Groq Cloud LPU (Fallback 1)
+        // Uses flagship free tier models: llama-3.3-70b-versatile or llama-3.1-8b-instant
         // ==========================================
         if (groqKey.isNotBlank()) {
             try {
@@ -186,16 +194,16 @@ class LocalLlmEngine(
                 if (groqResult != null) {
                     return@withContext groqResult
                 }
-                android.util.Log.w(TAG, "Groq inference failed. Falling back to Gemini retry...")
+                android.util.Log.w(TAG, "Groq inference failed. Falling back to Gemini Fallback Model...")
             } catch (e: Exception) {
-                android.util.Log.w(TAG, "Groq invocation exception: ${e.message}. Proceeding to Gemini retry...")
+                android.util.Log.w(TAG, "Groq invocation exception: ${e.message}. Proceeding to Gemini fallback...")
             }
         }
 
         // ==========================================
-        // Step 3: Gemini Retry (Fallback 2 with secondary candidate)
+        // Step 3: Gemini Fallback Model (Fallback 2 with secondary model)
         // ==========================================
-        if (geminiKey.isNotBlank()) {
+        if (geminiKey.isNotBlank() || geminiBackupKey.isNotBlank()) {
             try {
                 val geminiRetryResult = geminiClient.generateResponse(
                     question = question,
@@ -203,12 +211,12 @@ class LocalLlmEngine(
                     isRomanianEnabled = isRomanianEnabled,
                     profile = profile,
                     startTimeMs = startTime,
-                    isRetry = true
+                    forceFallbackModel = true
                 )
                 if (geminiRetryResult != null) {
                     return@withContext geminiRetryResult
                 }
-                android.util.Log.w(TAG, "Gemini retry failed. Falling back to Local Neural Model...")
+                android.util.Log.w(TAG, "Gemini fallback model failed. Falling back to Local Neural Model...")
             } catch (e: Exception) {
                 android.util.Log.w(TAG, "Gemini retry exception: ${e.message}. Falling back to Local Neural...")
             }

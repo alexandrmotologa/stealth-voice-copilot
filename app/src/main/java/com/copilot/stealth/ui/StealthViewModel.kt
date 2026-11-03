@@ -68,8 +68,11 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
         checkModelAvailability()
         val isFirstLaunch = !carrierProfileRepository.isInitialSetupCompleted()
         val currentGeminiKey = carrierProfileRepository.getGeminiApiKey()
+        val currentGeminiBackupKey = carrierProfileRepository.getGeminiBackupApiKey()
         val currentGeminiModel = carrierProfileRepository.getGeminiModel()
+        val currentGeminiFallbackModel = carrierProfileRepository.getGeminiFallbackModel()
         val currentGroqKey = carrierProfileRepository.getGroqApiKey()
+        val currentGroqModel = carrierProfileRepository.getCloudModel()
         val currentProfile = carrierProfileRepository.getProfile()
         val currentAutoAnswer = carrierProfileRepository.isQuestionAutoAnswerEnabled()
         _uiState.update {
@@ -78,8 +81,11 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
                 preferredLocalModel = carrierProfileRepository.getPreferredLocalModel(),
                 isEngineSelectionOpen = isFirstLaunch,
                 geminiApiKey = currentGeminiKey,
+                geminiBackupApiKey = currentGeminiBackupKey,
                 geminiModel = currentGeminiModel,
+                geminiFallbackModel = currentGeminiFallbackModel,
                 groqApiKey = currentGroqKey,
+                groqModel = currentGroqModel,
                 isQuestionAutoAnswerEnabled = currentAutoAnswer,
                 carrierProfile = currentProfile,
                 guidanceLanguage = currentProfile.guidanceLanguage,
@@ -236,15 +242,36 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
                 llmEngine.reloadCloudConfig()
                 _uiState.update { it.copy(geminiApiKey = intent.apiKey) }
             }
+            is StealthUiIntent.SaveGeminiBackupApiKey -> {
+                carrierProfileRepository.saveGeminiBackupApiKey(intent.apiKey)
+                llmEngine.reloadCloudConfig()
+                _uiState.update { it.copy(geminiBackupApiKey = intent.apiKey) }
+            }
             is StealthUiIntent.SaveGeminiModel -> {
                 carrierProfileRepository.saveGeminiModel(intent.model)
                 llmEngine.reloadCloudConfig()
                 _uiState.update { it.copy(geminiModel = intent.model) }
             }
+            is StealthUiIntent.SaveGeminiFallbackModel -> {
+                carrierProfileRepository.saveGeminiFallbackModel(intent.model)
+                llmEngine.reloadCloudConfig()
+                _uiState.update { it.copy(geminiFallbackModel = intent.model) }
+            }
+            is StealthUiIntent.TestAndFetchGeminiModels -> {
+                testAndFetchGeminiModels(intent.apiKey)
+            }
             is StealthUiIntent.SaveGroqApiKey -> {
                 carrierProfileRepository.saveGroqApiKey(intent.apiKey)
                 llmEngine.reloadCloudConfig()
                 _uiState.update { it.copy(groqApiKey = intent.apiKey) }
+            }
+            is StealthUiIntent.SaveGroqModel -> {
+                carrierProfileRepository.saveCloudModel(intent.model)
+                llmEngine.reloadCloudConfig()
+                _uiState.update { it.copy(groqModel = intent.model) }
+            }
+            is StealthUiIntent.TestAndFetchGroqModels -> {
+                testAndFetchGroqModels(intent.apiKey)
             }
             is StealthUiIntent.ToggleAutoAnswerOnly -> {
                 val next = !_uiState.value.isQuestionAutoAnswerEnabled
@@ -624,6 +651,58 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
                         stopAudioStream()
                         _uiState.update { it.copy(batterySaverMode = true) }
                     }
+                }
+            }
+        }
+    }
+
+    private fun testAndFetchGeminiModels(apiKey: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isTestingGeminiKey = true, geminiKeyTestMessage = null) }
+            val res = llmEngine.geminiClient.fetchAvailableModels(apiKey)
+            if (res.isSuccess) {
+                val models = res.getOrDefault(emptyList())
+                _uiState.update {
+                    it.copy(
+                        isTestingGeminiKey = false,
+                        availableGeminiModels = models,
+                        geminiKeyTestMessage = "Valid Key! ${models.size} models found."
+                    )
+                }
+                hapticHelper.pulseAnswerReady()
+            } else {
+                val err = res.exceptionOrNull()?.localizedMessage ?: "Invalid Key or Network Error"
+                _uiState.update {
+                    it.copy(
+                        isTestingGeminiKey = false,
+                        geminiKeyTestMessage = "Failed: $err"
+                    )
+                }
+            }
+        }
+    }
+
+    private fun testAndFetchGroqModels(apiKey: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isTestingGroqKey = true, groqKeyTestMessage = null) }
+            val res = llmEngine.groqClient.fetchAvailableModels(apiKey)
+            if (res.isSuccess) {
+                val models = res.getOrDefault(emptyList())
+                _uiState.update {
+                    it.copy(
+                        isTestingGroqKey = false,
+                        availableGroqModels = models,
+                        groqKeyTestMessage = "Valid Key! ${models.size} models found."
+                    )
+                }
+                hapticHelper.pulseAnswerReady()
+            } else {
+                val err = res.exceptionOrNull()?.localizedMessage ?: "Invalid Key or Network Error"
+                _uiState.update {
+                    it.copy(
+                        isTestingGroqKey = false,
+                        groqKeyTestMessage = "Failed: $err"
+                    )
                 }
             }
         }

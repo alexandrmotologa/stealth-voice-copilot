@@ -23,8 +23,13 @@ sealed interface StealthUiIntent {
     data object ExportTranscript : StealthUiIntent
     data class SaveCarrierProfile(val profile: CarrierProfile) : StealthUiIntent
     data class SaveGeminiApiKey(val apiKey: String) : StealthUiIntent
+    data class SaveGeminiBackupApiKey(val apiKey: String) : StealthUiIntent
     data class SaveGeminiModel(val model: String) : StealthUiIntent
+    data class SaveGeminiFallbackModel(val model: String) : StealthUiIntent
+    data class TestAndFetchGeminiModels(val apiKey: String) : StealthUiIntent
     data class SaveGroqApiKey(val apiKey: String) : StealthUiIntent
+    data class SaveGroqModel(val model: String) : StealthUiIntent
+    data class TestAndFetchGroqModels(val apiKey: String) : StealthUiIntent
     data object ToggleAutoAnswerOnly : StealthUiIntent
     data class SetFontSize(val fontSize: TeleprompterFontSize) : StealthUiIntent
     data class SetProfileMode(val mode: ProfileMode) : StealthUiIntent

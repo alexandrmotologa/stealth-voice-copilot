@@ -140,8 +140,13 @@ class StealthActivity : ComponentActivity() {
                     onSelectLocalModel = { name -> viewModel.processIntent(StealthUiIntent.SelectLocalModel(name)) },
                     onTriggerDownload = { id -> viewModel.processIntent(StealthUiIntent.TriggerModelDownload(id)) },
                     onSaveGroqApiKey = { key -> viewModel.processIntent(StealthUiIntent.SaveGroqApiKey(key)) },
+                    onSaveGroqModel = { model -> viewModel.processIntent(StealthUiIntent.SaveGroqModel(model)) },
+                    onTestGroqKey = { key -> viewModel.processIntent(StealthUiIntent.TestAndFetchGroqModels(key)) },
                     onSaveGeminiApiKey = { key -> viewModel.processIntent(StealthUiIntent.SaveGeminiApiKey(key)) },
+                    onSaveGeminiBackupApiKey = { key -> viewModel.processIntent(StealthUiIntent.SaveGeminiBackupApiKey(key)) },
                     onSaveGeminiModel = { model -> viewModel.processIntent(StealthUiIntent.SaveGeminiModel(model)) },
+                    onSaveGeminiFallbackModel = { model -> viewModel.processIntent(StealthUiIntent.SaveGeminiFallbackModel(model)) },
+                    onTestGeminiKey = { key -> viewModel.processIntent(StealthUiIntent.TestAndFetchGeminiModels(key)) },
                     onCycleGuidanceLanguage = {
                         val langs = GuidanceLanguage.values()
                         val current = uiState.carrierProfile.guidanceLanguage
@@ -266,8 +271,13 @@ fun StealthScreen(
     onSelectLocalModel: (String) -> Unit,
     onTriggerDownload: (String) -> Unit,
     onSaveGroqApiKey: (String) -> Unit = {},
+    onSaveGroqModel: (String) -> Unit = {},
+    onTestGroqKey: (String) -> Unit = {},
     onSaveGeminiApiKey: (String) -> Unit = {},
+    onSaveGeminiBackupApiKey: (String) -> Unit = {},
     onSaveGeminiModel: (String) -> Unit = {},
+    onSaveGeminiFallbackModel: (String) -> Unit = {},
+    onTestGeminiKey: (String) -> Unit = {},
     onCycleGuidanceLanguage: () -> Unit = {},
     onCyclePrompterStyle: () -> Unit = {},
     onDismissSpeakingCooldown: () -> Unit = {}
@@ -481,8 +491,13 @@ fun StealthScreen(
                 onSelectLocalModel = onSelectLocalModel,
                 onTriggerDownload = onTriggerDownload,
                 onSaveGroqApiKey = onSaveGroqApiKey,
+                onSaveGroqModel = onSaveGroqModel,
+                onTestGroqKey = onTestGroqKey,
                 onSaveGeminiApiKey = onSaveGeminiApiKey,
+                onSaveGeminiBackupApiKey = onSaveGeminiBackupApiKey,
                 onSaveGeminiModel = onSaveGeminiModel,
+                onSaveGeminiFallbackModel = onSaveGeminiFallbackModel,
+                onTestGeminiKey = onTestGeminiKey,
                 onDismiss = onOpenEngineSelection
             )
         }

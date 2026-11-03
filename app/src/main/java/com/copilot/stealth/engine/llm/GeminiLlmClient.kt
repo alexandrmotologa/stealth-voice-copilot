@@ -11,16 +11,97 @@ import java.net.URL
 
 /**
  * Ultra-fast Gemini AI client (Google AI Studio) providing 1M+ token context window,
- * high free-tier rate limits (15 RPM / 1,500 RPD), and sub-400ms multimodal intelligence.
+ * high free-tier rate limits (15 RPM / 1,500 RPD), dual-key failover, and dynamic model fetching.
  */
 class GeminiLlmClient(
-    private var apiKey: String = "",
-    private var modelName: String = DEFAULT_MODEL
+    private var primaryApiKey: String = "",
+    private var backupApiKey: String = "",
+    private var primaryModel: String = DEFAULT_MODEL,
+    private var fallbackModel: String = DEFAULT_FALLBACK_MODEL
 ) {
 
-    fun updateConfig(newApiKey: String, newModelName: String = modelName) {
-        if (newApiKey.isNotBlank()) apiKey = newApiKey.trim()
-        if (newModelName.isNotBlank()) modelName = newModelName.trim()
+    fun updateConfig(
+        newPrimaryApiKey: String,
+        newBackupApiKey: String = backupApiKey,
+        newPrimaryModel: String = primaryModel,
+        newFallbackModel: String = fallbackModel
+    ) {
+        if (newPrimaryApiKey.isNotBlank()) primaryApiKey = newPrimaryApiKey.trim()
+        if (newBackupApiKey.isNotBlank()) backupApiKey = newBackupApiKey.trim()
+        if (newPrimaryModel.isNotBlank()) primaryModel = newPrimaryModel.trim()
+        if (newFallbackModel.isNotBlank()) fallbackModel = newFallbackModel.trim()
+    }
+
+    /**
+     * Tests the provided Gemini API key by querying Google AI Studio's models endpoint.
+     * Returns the sorted list of model identifiers supporting content generation.
+     */
+    suspend fun fetchAvailableModels(apiKey: String): Result<List<String>> = withContext(Dispatchers.IO) {
+        val cleanKey = apiKey.trim()
+        if (cleanKey.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("Gemini API key is blank"))
+        }
+
+        try {
+            val endpointUrl = "https://generativelanguage.googleapis.com/v1beta/models?key=$cleanKey"
+            val url = URL(endpointUrl)
+            val connection = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                setRequestProperty("Accept", "application/json")
+                setRequestProperty("User-Agent", "StealthVoiceCopilot/1.0 (Android; Gemini)")
+                connectTimeout = 4500
+                readTimeout = 6000
+                doInput = true
+            }
+
+            val responseCode = connection.responseCode
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                val responseText = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                val rootJson = JSONObject(responseText)
+                val modelsArray = rootJson.optJSONArray("models") ?: JSONArray()
+
+                val modelIds = mutableListOf<String>()
+                for (i in 0 until modelsArray.length()) {
+                    val mObj = modelsArray.optJSONObject(i) ?: continue
+                    val name = mObj.optString("name", "") // e.g. "models/gemini-2.5-flash"
+                    val cleanId = name.removePrefix("models/")
+                    val methods = mObj.optJSONArray("supportedGenerationMethods")
+
+                    var canGenerate = false
+                    if (methods != null) {
+                        for (j in 0 until methods.length()) {
+                            if (methods.optString(j) == "generateContent") {
+                                canGenerate = true
+                                break
+                            }
+                        }
+                    }
+
+                    if (canGenerate && cleanId.contains("gemini", ignoreCase = true)) {
+                        modelIds.add(cleanId)
+                    }
+                }
+
+                // Sort models so flash and newer models appear on top
+                val sorted = modelIds.sortedWith(
+                    compareByDescending<String> { it.contains("2.5") }
+                        .thenByDescending { it.contains("2.0") }
+                        .thenByDescending { it.contains("flash") }
+                        .thenBy { it }
+                )
+
+                if (sorted.isNotEmpty()) {
+                    Result.success(sorted)
+                } else {
+                    Result.success(listOf("gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"))
+                }
+            } else {
+                val err = connection.errorStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: "HTTP $responseCode"
+                Result.failure(Exception("HTTP $responseCode: $err"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     suspend fun generateResponse(
@@ -29,28 +110,33 @@ class GeminiLlmClient(
         isRomanianEnabled: Boolean,
         profile: com.copilot.stealth.data.models.CarrierProfile = com.copilot.stealth.data.models.CarrierProfile(),
         startTimeMs: Long = System.currentTimeMillis(),
-        isRetry: Boolean = false
+        forceFallbackModel: Boolean = false
     ): CopilotTurn? = withContext(Dispatchers.IO) {
-        if (apiKey.isBlank()) {
-            android.util.Log.d(TAG, "Gemini API key is blank; skipping Gemini inference")
+        val keysToTry = listOf(primaryApiKey, backupApiKey).filter { it.isNotBlank() }
+        if (keysToTry.isEmpty()) {
+            android.util.Log.d(TAG, "No Gemini API keys configured; skipping Gemini inference")
             return@withContext null
         }
 
-        val candidates = if (isRetry) {
-            listOf("gemini-2.0-flash", "gemini-1.5-flash", modelName).distinct()
+        val targetModel = if (forceFallbackModel) fallbackModel else primaryModel
+        val candidateModels = if (forceFallbackModel) {
+            listOf(fallbackModel, "gemini-2.0-flash", "gemini-1.5-flash").distinct()
         } else {
-            listOf(modelName, "gemini-2.5-flash", "gemini-2.0-flash").distinct()
+            listOf(primaryModel, "gemini-2.5-flash", fallbackModel).distinct()
         }
 
-        for (candidate in candidates) {
-            val result = executeInference(candidate, question, recentTurns, isRomanianEnabled, profile, startTimeMs)
-            if (result != null) return@withContext result
+        for (activeKey in keysToTry) {
+            for (candidate in candidateModels) {
+                val result = executeInference(activeKey, candidate, question, recentTurns, isRomanianEnabled, profile, startTimeMs)
+                if (result != null) return@withContext result
+            }
         }
 
         null
     }
 
     private fun executeInference(
+        activeKey: String,
         targetModel: String,
         question: String,
         recentTurns: List<CopilotTurn>,
@@ -118,7 +204,7 @@ class GeminiLlmClient(
                 put("generationConfig", genConfig)
             }
 
-            val endpointUrl = "https://generativelanguage.googleapis.com/v1beta/models/$targetModel:generateContent?key=$apiKey"
+            val endpointUrl = "https://generativelanguage.googleapis.com/v1beta/models/$targetModel:generateContent?key=$activeKey"
             val url = URL(endpointUrl)
             val connection = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
@@ -269,5 +355,6 @@ class GeminiLlmClient(
     companion object {
         private const val TAG = "GeminiLlmClient"
         const val DEFAULT_MODEL = "gemini-2.5-flash"
+        const val DEFAULT_FALLBACK_MODEL = "gemini-2.0-flash"
     }
 }

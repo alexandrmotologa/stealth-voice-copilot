@@ -7,8 +7,8 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /**
- * Manages persistent storage and retrieval of carrier profile, Gemini & Groq cloud configuration,
- * and user preferences for primary and local neural engines.
+ * Manages persistent storage and retrieval of carrier profile, Gemini (Primary + Backup),
+ * Groq cloud configuration, and user preferences for primary and local neural engines.
  */
 class CarrierProfileRepository(private val context: Context) {
 
@@ -29,7 +29,7 @@ class CarrierProfileRepository(private val context: Context) {
         prefs.edit().putString(KEY_PROFILE, serialized).apply()
     }
 
-    // Google AI Studio Gemini API Key
+    // Google AI Studio Gemini - Primary API Key
     fun getGeminiApiKey(): String {
         return prefs.getString(KEY_GEMINI_KEY, "") ?: ""
     }
@@ -38,12 +38,31 @@ class CarrierProfileRepository(private val context: Context) {
         prefs.edit().putString(KEY_GEMINI_KEY, key.trim()).apply()
     }
 
+    // Google AI Studio Gemini - Backup / Fallback API Key (doubles quotas or provides redundant failover)
+    fun getGeminiBackupApiKey(): String {
+        return prefs.getString(KEY_GEMINI_BACKUP_KEY, "") ?: ""
+    }
+
+    fun saveGeminiBackupApiKey(key: String) {
+        prefs.edit().putString(KEY_GEMINI_BACKUP_KEY, key.trim()).apply()
+    }
+
+    // Gemini Primary Model (default: gemini-2.5-flash)
     fun getGeminiModel(): String {
         return prefs.getString(KEY_GEMINI_MODEL, DEFAULT_GEMINI_MODEL) ?: DEFAULT_GEMINI_MODEL
     }
 
     fun saveGeminiModel(model: String) {
         prefs.edit().putString(KEY_GEMINI_MODEL, model.trim()).apply()
+    }
+
+    // Gemini Fallback Model (default: gemini-2.0-flash)
+    fun getGeminiFallbackModel(): String {
+        return prefs.getString(KEY_GEMINI_FALLBACK_MODEL, DEFAULT_GEMINI_FALLBACK_MODEL) ?: DEFAULT_GEMINI_FALLBACK_MODEL
+    }
+
+    fun saveGeminiFallbackModel(model: String) {
+        prefs.edit().putString(KEY_GEMINI_FALLBACK_MODEL, model.trim()).apply()
     }
 
     // Groq API Key
@@ -59,9 +78,10 @@ class CarrierProfileRepository(private val context: Context) {
         prefs.edit().putString(KEY_GROQ_KEY, key.trim()).apply()
     }
 
+    // Groq Model (default: llama-3.3-70b-versatile, 100% free on console.groq.com)
     fun getCloudModel(): String {
         val stored = prefs.getString(KEY_CLOUD_MODEL, null)
-        if (stored.isNullOrBlank() || stored == "openai/gpt-oss-20b") {
+        if (stored.isNullOrBlank() || stored == "openai/gpt-oss-20b" || stored == "qwen/qwen3.8-27b") {
             return DEFAULT_CLOUD_MODEL
         }
         return stored
@@ -113,7 +133,9 @@ class CarrierProfileRepository(private val context: Context) {
         private const val PREFS_NAME = "stealth_carrier_prefs"
         private const val KEY_PROFILE = "carrier_profile_data"
         private const val KEY_GEMINI_KEY = "gemini_api_key"
+        private const val KEY_GEMINI_BACKUP_KEY = "gemini_backup_api_key"
         private const val KEY_GEMINI_MODEL = "gemini_model_name"
+        private const val KEY_GEMINI_FALLBACK_MODEL = "gemini_fallback_model_name"
         private const val KEY_GROQ_KEY = "groq_api_key"
         private const val KEY_CLOUD_MODEL = "cloud_model_name"
         private const val KEY_ENGINE_TYPE = "active_engine_type"
@@ -122,7 +144,8 @@ class CarrierProfileRepository(private val context: Context) {
         private const val KEY_AUTO_ANSWER_QUESTIONS = "auto_answer_questions_enabled"
 
         const val DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+        const val DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-2.0-flash"
         const val DEFAULT_GROQ_KEY = ""
-        const val DEFAULT_CLOUD_MODEL = "qwen/qwen3.8-27b"
+        const val DEFAULT_CLOUD_MODEL = "llama-3.3-70b-versatile"
     }
 }
