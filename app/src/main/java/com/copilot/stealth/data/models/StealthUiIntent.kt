@@ -30,6 +30,7 @@ sealed interface StealthUiIntent {
     data class SaveGroqApiKey(val apiKey: String) : StealthUiIntent
     data class SaveGroqModel(val model: String) : StealthUiIntent
     data class TestAndFetchGroqModels(val apiKey: String) : StealthUiIntent
+    data object ConfirmAndApplyEngineSelection : StealthUiIntent
     data object ToggleAutoAnswerOnly : StealthUiIntent
     data class SetFontSize(val fontSize: TeleprompterFontSize) : StealthUiIntent
     data class SetProfileMode(val mode: ProfileMode) : StealthUiIntent

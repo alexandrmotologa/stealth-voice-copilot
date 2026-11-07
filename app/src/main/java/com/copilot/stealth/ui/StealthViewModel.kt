@@ -275,6 +275,12 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
             is StealthUiIntent.TestAndFetchGroqModels -> {
                 testAndFetchGroqModels(intent.apiKey)
             }
+            is StealthUiIntent.ConfirmAndApplyEngineSelection -> {
+                carrierProfileRepository.setInitialSetupCompleted(true)
+                llmEngine.reloadCloudConfig()
+                _uiState.update { it.copy(isEngineSelectionOpen = false) }
+                hapticHelper.pulseAnswerReady()
+            }
             is StealthUiIntent.ToggleAutoAnswerOnly -> {
                 val next = !_uiState.value.isQuestionAutoAnswerEnabled
                 carrierProfileRepository.saveQuestionAutoAnswerEnabled(next)
@@ -664,7 +670,8 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
     private fun testAndFetchGeminiModels(apiKey: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isTestingGeminiKey = true, geminiKeyTestMessage = null) }
-            val res = llmEngine.geminiClient.fetchAvailableModels(apiKey)
+            val cleanKey = apiKey.trim()
+            val res = llmEngine.geminiClient.fetchAvailableModels(cleanKey)
             if (res.isSuccess) {
                 val models = res.getOrDefault(emptyList())
                 val currentSelected = _uiState.value.geminiModel
@@ -673,13 +680,19 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
                 } else {
                     models.firstOrNull() ?: currentSelected
                 }
+                // Auto-save verified key and model immediately to persistent storage
+                carrierProfileRepository.saveGeminiApiKey(cleanKey)
                 carrierProfileRepository.saveGeminiModel(updatedModel)
+                carrierProfileRepository.setInitialSetupCompleted(true)
+                llmEngine.reloadCloudConfig()
+
                 _uiState.update {
                     it.copy(
+                        geminiApiKey = cleanKey,
                         isTestingGeminiKey = false,
                         availableGeminiModels = models,
                         geminiModel = updatedModel,
-                        geminiKeyTestMessage = "Valid Key! ${models.size} models found."
+                        geminiKeyTestMessage = "Valid Key! ${models.size} models found & saved."
                     )
                 }
                 hapticHelper.pulseAnswerReady()
@@ -698,7 +711,8 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
     private fun testAndFetchGroqModels(apiKey: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isTestingGroqKey = true, groqKeyTestMessage = null) }
-            val res = llmEngine.groqClient.fetchAvailableModels(apiKey)
+            val cleanKey = apiKey.trim()
+            val res = llmEngine.groqClient.fetchAvailableModels(cleanKey)
             if (res.isSuccess) {
                 val models = res.getOrDefault(emptyList())
                 val currentSelected = _uiState.value.groqModel
@@ -707,13 +721,19 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
                 } else {
                     models.firstOrNull() ?: currentSelected
                 }
+                // Auto-save verified key and model immediately to persistent storage
+                carrierProfileRepository.saveGroqApiKey(cleanKey)
                 carrierProfileRepository.saveCloudModel(updatedModel)
+                carrierProfileRepository.setInitialSetupCompleted(true)
+                llmEngine.reloadCloudConfig()
+
                 _uiState.update {
                     it.copy(
+                        groqApiKey = cleanKey,
                         isTestingGroqKey = false,
                         availableGroqModels = models,
                         groqModel = updatedModel,
-                        groqKeyTestMessage = "Valid Key! ${models.size} models found."
+                        groqKeyTestMessage = "Valid Key! ${models.size} models found & saved."
                     )
                 }
                 hapticHelper.pulseAnswerReady()

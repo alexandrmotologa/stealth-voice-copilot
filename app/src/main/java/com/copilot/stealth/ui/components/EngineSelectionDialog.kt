@@ -80,7 +80,8 @@ fun EngineSelectionDialog(
     onSaveGeminiModel: (String) -> Unit = {},
     onSaveGeminiFallbackModel: (String) -> Unit = {},
     onTestGeminiKey: (String) -> Unit = {},
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onConfirmAndApply: () -> Unit = onDismiss
 ) {
     val palette = LocalStealthPalette.current
 
@@ -298,7 +299,7 @@ fun EngineSelectionDialog(
                     Spacer(modifier = Modifier.height(22.dp))
 
                     Button(
-                        onClick = onDismiss,
+                        onClick = onConfirmAndApply,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(46.dp),
@@ -346,7 +347,7 @@ private fun GeminiApiKeyConfigCard(
     }
     var isSavedRecently by remember { mutableStateOf(false) }
 
-    val hasPrimary = primaryApiKey.isNotBlank()
+    val hasPrimary = primaryApiKey.isNotBlank() || inputKey.isNotBlank()
     val isTestedSuccess = (testMessage != null && testMessage.contains("Valid", ignoreCase = true)) ||
             (availableModels.isNotEmpty() && hasPrimary)
 
@@ -389,7 +390,8 @@ private fun GeminiApiKeyConfigCard(
 
                 Text(
                     text = if (hasPrimary) {
-                        "● READY (${primaryApiKey.take(4)}...)"
+                        val keyToShow = if (primaryApiKey.isNotBlank()) primaryApiKey else inputKey
+                        "● READY (${keyToShow.take(4)}...)"
                     } else {
                         "○ NOT SET"
                     },
@@ -414,15 +416,24 @@ private fun GeminiApiKeyConfigCard(
                 label = "PRIMARY GEMINI API KEY (ACCOUNT 1):",
                 placeholder = "AIzaSy... (Account 1)",
                 value = inputKey,
-                onValueChange = { inputKey = it; isSavedRecently = false },
+                onValueChange = {
+                    inputKey = it
+                    isSavedRecently = false
+                    if (it.isNotBlank()) onSavePrimaryApiKey(it.trim())
+                },
                 onPaste = {
                     val clip = clipboardManager.getText()?.text?.trim()
                     if (!clip.isNullOrBlank()) {
                         inputKey = clip
-                        isSavedRecently = false
+                        onSavePrimaryApiKey(clip)
+                        isSavedRecently = true
                     }
                 },
-                onClear = { inputKey = ""; isSavedRecently = false },
+                onClear = {
+                    inputKey = ""
+                    onSavePrimaryApiKey("")
+                    isSavedRecently = false
+                },
                 accentColor = Color(0xFF1E88E5)
             )
 
@@ -433,15 +444,24 @@ private fun GeminiApiKeyConfigCard(
                 label = "BACKUP GEMINI API KEY (ACCOUNT 2 - FALLBACK):",
                 placeholder = "AIzaSy... (Account 2 fallback)",
                 value = inputBackupKey,
-                onValueChange = { inputBackupKey = it; isSavedRecently = false },
+                onValueChange = {
+                    inputBackupKey = it
+                    isSavedRecently = false
+                    if (it.isNotBlank()) onSaveBackupApiKey(it.trim())
+                },
                 onPaste = {
                     val clip = clipboardManager.getText()?.text?.trim()
                     if (!clip.isNullOrBlank()) {
                         inputBackupKey = clip
-                        isSavedRecently = false
+                        onSaveBackupApiKey(clip)
+                        isSavedRecently = true
                     }
                 },
-                onClear = { inputBackupKey = ""; isSavedRecently = false },
+                onClear = {
+                    inputBackupKey = ""
+                    onSaveBackupApiKey("")
+                    isSavedRecently = false
+                },
                 accentColor = Color(0xFF64B5F6)
             )
 
@@ -706,15 +726,24 @@ private fun GroqApiKeyConfigCard(
                 label = "GROQ API KEY:",
                 placeholder = "gsk_... (Groq Console Key)",
                 value = inputKey,
-                onValueChange = { inputKey = it; isSavedRecently = false },
+                onValueChange = {
+                    inputKey = it
+                    isSavedRecently = false
+                    if (it.isNotBlank()) onSaveApiKey(it.trim())
+                },
                 onPaste = {
                     val clip = clipboardManager.getText()?.text?.trim()
                     if (!clip.isNullOrBlank()) {
                         inputKey = clip
-                        isSavedRecently = false
+                        onSaveApiKey(clip)
+                        isSavedRecently = true
                     }
                 },
-                onClear = { inputKey = ""; isSavedRecently = false },
+                onClear = {
+                    inputKey = ""
+                    onSaveApiKey("")
+                    isSavedRecently = false
+                },
                 accentColor = palette.statusActive
             )
 

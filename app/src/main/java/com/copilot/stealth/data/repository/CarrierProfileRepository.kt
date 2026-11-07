@@ -35,7 +35,7 @@ class CarrierProfileRepository(private val context: Context) {
     }
 
     fun saveGeminiApiKey(key: String) {
-        prefs.edit().putString(KEY_GEMINI_KEY, key.trim()).apply()
+        prefs.edit().putString(KEY_GEMINI_KEY, key.trim()).commit()
     }
 
     // Google AI Studio Gemini - Backup / Fallback API Key (doubles quotas or provides redundant failover)
@@ -44,7 +44,7 @@ class CarrierProfileRepository(private val context: Context) {
     }
 
     fun saveGeminiBackupApiKey(key: String) {
-        prefs.edit().putString(KEY_GEMINI_BACKUP_KEY, key.trim()).apply()
+        prefs.edit().putString(KEY_GEMINI_BACKUP_KEY, key.trim()).commit()
     }
 
     // Gemini Primary Model (default: gemini-2.5-flash)
@@ -53,7 +53,7 @@ class CarrierProfileRepository(private val context: Context) {
     }
 
     fun saveGeminiModel(model: String) {
-        prefs.edit().putString(KEY_GEMINI_MODEL, model.trim()).apply()
+        prefs.edit().putString(KEY_GEMINI_MODEL, model.trim()).commit()
     }
 
     // Gemini Fallback Model (default: gemini-2.0-flash)
@@ -62,7 +62,7 @@ class CarrierProfileRepository(private val context: Context) {
     }
 
     fun saveGeminiFallbackModel(model: String) {
-        prefs.edit().putString(KEY_GEMINI_FALLBACK_MODEL, model.trim()).apply()
+        prefs.edit().putString(KEY_GEMINI_FALLBACK_MODEL, model.trim()).commit()
     }
 
     // Groq API Key
@@ -75,7 +75,7 @@ class CarrierProfileRepository(private val context: Context) {
     }
 
     fun saveGroqApiKey(key: String) {
-        prefs.edit().putString(KEY_GROQ_KEY, key.trim()).apply()
+        prefs.edit().putString(KEY_GROQ_KEY, key.trim()).commit()
     }
 
     // Groq Model (default: openai/gpt-oss-20b or llama-3.3-70b-versatile)
@@ -85,7 +85,7 @@ class CarrierProfileRepository(private val context: Context) {
     }
 
     fun saveCloudModel(model: String) {
-        prefs.edit().putString(KEY_CLOUD_MODEL, model.trim()).apply()
+        prefs.edit().putString(KEY_CLOUD_MODEL, model.trim()).commit()
     }
 
     // STT Language Mode (default: ENGLISH)
@@ -121,7 +121,7 @@ class CarrierProfileRepository(private val context: Context) {
     }
 
     fun saveEngineType(engineType: EngineType) {
-        prefs.edit().putString(KEY_ENGINE_TYPE, engineType.name).apply()
+        prefs.edit().putString(KEY_ENGINE_TYPE, engineType.name).commit()
     }
 
     fun getPreferredLocalModel(): String {
@@ -129,7 +129,7 @@ class CarrierProfileRepository(private val context: Context) {
     }
 
     fun savePreferredLocalModel(modelName: String) {
-        prefs.edit().putString(KEY_PREFERRED_LOCAL_MODEL, modelName).apply()
+        prefs.edit().putString(KEY_PREFERRED_LOCAL_MODEL, modelName).commit()
     }
 
     fun isSpeakingCooldownEnabled(): Boolean {
@@ -137,7 +137,7 @@ class CarrierProfileRepository(private val context: Context) {
     }
 
     fun saveSpeakingCooldownEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_SPEAKING_COOLDOWN_ENABLED, enabled).apply()
+        prefs.edit().putBoolean(KEY_SPEAKING_COOLDOWN_ENABLED, enabled).commit()
     }
 
     fun isInitialSetupCompleted(): Boolean {
@@ -145,7 +145,7 @@ class CarrierProfileRepository(private val context: Context) {
     }
 
     fun setInitialSetupCompleted(completed: Boolean) {
-        prefs.edit().putBoolean(KEY_SETUP_COMPLETED, completed).apply()
+        prefs.edit().putBoolean(KEY_SETUP_COMPLETED, completed).commit()
     }
 
     companion object {

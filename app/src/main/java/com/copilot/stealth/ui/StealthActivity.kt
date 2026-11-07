@@ -147,6 +147,7 @@ class StealthActivity : ComponentActivity() {
                     onSaveGeminiModel = { model -> viewModel.processIntent(StealthUiIntent.SaveGeminiModel(model)) },
                     onSaveGeminiFallbackModel = { model -> viewModel.processIntent(StealthUiIntent.SaveGeminiFallbackModel(model)) },
                     onTestGeminiKey = { key -> viewModel.processIntent(StealthUiIntent.TestAndFetchGeminiModels(key)) },
+                    onConfirmAndApply = { viewModel.processIntent(StealthUiIntent.ConfirmAndApplyEngineSelection) },
                     onCycleGuidanceLanguage = {
                         val langs = GuidanceLanguage.values()
                         val current = uiState.carrierProfile.guidanceLanguage
@@ -278,6 +279,7 @@ fun StealthScreen(
     onSaveGeminiModel: (String) -> Unit = {},
     onSaveGeminiFallbackModel: (String) -> Unit = {},
     onTestGeminiKey: (String) -> Unit = {},
+    onConfirmAndApply: () -> Unit = {},
     onCycleGuidanceLanguage: () -> Unit = {},
     onCyclePrompterStyle: () -> Unit = {},
     onDismissSpeakingCooldown: () -> Unit = {}
@@ -498,6 +500,7 @@ fun StealthScreen(
                 onSaveGeminiModel = onSaveGeminiModel,
                 onSaveGeminiFallbackModel = onSaveGeminiFallbackModel,
                 onTestGeminiKey = onTestGeminiKey,
+                onConfirmAndApply = onConfirmAndApply,
                 onDismiss = onOpenEngineSelection
             )
         }
