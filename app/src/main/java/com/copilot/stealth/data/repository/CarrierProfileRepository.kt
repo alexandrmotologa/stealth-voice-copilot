@@ -78,17 +78,28 @@ class CarrierProfileRepository(private val context: Context) {
         prefs.edit().putString(KEY_GROQ_KEY, key.trim()).apply()
     }
 
-    // Groq Model (default: llama-3.3-70b-versatile, 100% free on console.groq.com)
+    // Groq Model (default: openai/gpt-oss-20b or llama-3.3-70b-versatile)
     fun getCloudModel(): String {
         val stored = prefs.getString(KEY_CLOUD_MODEL, null)
-        if (stored.isNullOrBlank() || stored == "openai/gpt-oss-20b" || stored == "qwen/qwen3.8-27b") {
-            return DEFAULT_CLOUD_MODEL
-        }
-        return stored
+        return if (!stored.isNullOrBlank()) stored else DEFAULT_CLOUD_MODEL
     }
 
     fun saveCloudModel(model: String) {
         prefs.edit().putString(KEY_CLOUD_MODEL, model.trim()).apply()
+    }
+
+    // STT Language Mode (default: ENGLISH)
+    fun getSttLanguageMode(): com.copilot.stealth.data.models.SttLanguageMode {
+        val name = prefs.getString(KEY_STT_LANGUAGE_MODE, com.copilot.stealth.data.models.SttLanguageMode.ENGLISH.name)
+        return try {
+            com.copilot.stealth.data.models.SttLanguageMode.valueOf(name ?: com.copilot.stealth.data.models.SttLanguageMode.ENGLISH.name)
+        } catch (_: Exception) {
+            com.copilot.stealth.data.models.SttLanguageMode.ENGLISH
+        }
+    }
+
+    fun saveSttLanguageMode(mode: com.copilot.stealth.data.models.SttLanguageMode) {
+        prefs.edit().putString(KEY_STT_LANGUAGE_MODE, mode.name).apply()
     }
 
     // Translation & Question Answering Preference
@@ -142,6 +153,7 @@ class CarrierProfileRepository(private val context: Context) {
         private const val KEY_PREFERRED_LOCAL_MODEL = "preferred_local_model"
         private const val KEY_SETUP_COMPLETED = "initial_engine_setup_completed"
         private const val KEY_AUTO_ANSWER_QUESTIONS = "auto_answer_questions_enabled"
+        private const val KEY_STT_LANGUAGE_MODE = "stt_language_mode"
 
         const val DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
         const val DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-2.0-flash"

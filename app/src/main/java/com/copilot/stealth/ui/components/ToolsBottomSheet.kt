@@ -194,6 +194,7 @@ fun ToolsBottomSheet(
                     modifier = Modifier.weight(1f),
                     onClick = {
                         if (onOpenEngineSelection != null) {
+                            onDismiss()
                             onOpenEngineSelection()
                         } else {
                             onCycleEngine()

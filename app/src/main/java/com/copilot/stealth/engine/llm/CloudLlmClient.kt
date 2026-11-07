@@ -58,23 +58,31 @@ class CloudLlmClient(
                 for (i in 0 until dataArray.length()) {
                     val mObj = dataArray.optJSONObject(i) ?: continue
                     val id = mObj.optString("id", "")
-                    if (id.isNotBlank() && !id.contains("whisper", ignoreCase = true) && !id.contains("embedding", ignoreCase = true)) {
+                    if (id.isNotBlank() &&
+                        !id.contains("whisper", ignoreCase = true) &&
+                        !id.contains("embedding", ignoreCase = true) &&
+                        !id.contains("guard", ignoreCase = true) &&
+                        !id.contains("safeguard", ignoreCase = true)
+                    ) {
                         modelIds.add(id)
                     }
                 }
 
-                // Sort models prioritizing flagship free models
+                // Sort models prioritizing flagship free models & proven chat engines
                 val sorted = modelIds.sortedWith(
                     compareByDescending<String> { it.contains("llama-3.3-70b") }
+                        .thenByDescending { it.contains("openai/gpt-oss-120b") }
+                        .thenByDescending { it.contains("openai/gpt-oss-20b") }
+                        .thenByDescending { it.contains("qwen") }
                         .thenByDescending { it.contains("llama-3.1-8b") }
-                        .thenByDescending { it.contains("gemma2") }
+                        .thenByDescending { it.contains("gemma") }
                         .thenBy { it }
                 )
 
                 if (sorted.isNotEmpty()) {
                     Result.success(sorted)
                 } else {
-                    Result.success(listOf("llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"))
+                    Result.success(listOf("openai/gpt-oss-20b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"))
                 }
             } else {
                 val err = connection.errorStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: "HTTP $responseCode"
@@ -100,6 +108,9 @@ class CloudLlmClient(
         // 100% Free Tier production models on Groq
         val candidateModels = listOf(
             modelName,
+            "openai/gpt-oss-20b",
+            "openai/gpt-oss-120b",
+            "qwen/qwen3.8-27b",
             DEFAULT_GROQ_MODEL,
             FAST_FALLBACK_MODEL,
             "gemma2-9b-it"
@@ -239,33 +250,26 @@ class CloudLlmClient(
     )
 
     private fun parseJsonResponse(rawJson: String, originalPrompt: String): ParsedLlmResult {
-        try {
-            var text = rawJson.trim()
-            if (text.startsWith("```json")) {
-                text = text.removePrefix("```json").trim()
-            } else if (text.startsWith("```")) {
-                text = text.removePrefix("```").trim()
-            }
-            if (text.endsWith("```")) {
-                text = text.removeSuffix("```").trim()
-            }
+        var text = rawJson.trim()
+        if (text.startsWith("```json")) {
+            text = text.removePrefix("```json").trim()
+        } else if (text.startsWith("```")) {
+            text = text.removePrefix("```").trim()
+        }
+        if (text.endsWith("```")) {
+            text = text.removeSuffix("```").trim()
+        }
 
+        try {
             val startIdx = text.indexOf('{')
             val endIdx = text.lastIndexOf('}')
             if (startIdx != -1 && endIdx != -1 && endIdx > startIdx) {
                 val clean = text.substring(startIdx, endIdx + 1)
                 val json = JSONObject(clean)
                 val answerEn = json.optString("answer_en", "").trim()
-                val transcriptEn = if (json.has("transcript_en") && !json.isNull("transcript_en")) {
-                    json.getString("transcript_en").trim().takeIf { it.isNotBlank() && it != "null" }
-                } else null
-                val transcriptRo = if (json.has("transcript_ro") && !json.isNull("transcript_ro")) {
-                    json.getString("transcript_ro").trim().takeIf { it.isNotBlank() && it != "null" }
-                } else null
-                val answerRo = if (json.has("answer_ro") && !json.isNull("answer_ro")) {
-                    json.getString("answer_ro").trim().takeIf { it.isNotBlank() && it != "null" }
-                } else null
-
+                val transcriptEn = json.optString("transcript_en", "").trim().takeIf { it.isNotBlank() && it != "null" }
+                val transcriptRo = json.optString("transcript_ro", "").trim().takeIf { it.isNotBlank() && it != "null" }
+                val answerRo = json.optString("answer_ro", "").trim().takeIf { it.isNotBlank() && it != "null" }
                 val isQuestion = if (json.has("is_question")) {
                     json.optBoolean("is_question", true)
                 } else {
@@ -299,7 +303,38 @@ class CloudLlmClient(
                     )
                 }
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "Standard JSONObject parsing failed: ${e.message}")
+        }
+
+        // Resilient Regex Fallback for unescaped control characters / newlines in JSON strings
+        val answerEnRegex = Regex("\"answer_en\"\\s*:\\s*\"(.*?)(?<!\\\\)\"", RegexOption.DOT_MATCHES_ALL)
+        val answerRoRegex = Regex("\"answer_ro\"\\s*:\\s*\"(.*?)(?<!\\\\)\"", RegexOption.DOT_MATCHES_ALL)
+        val transcriptEnRegex = Regex("\"transcript_en\"\\s*:\\s*\"(.*?)(?<!\\\\)\"", RegexOption.DOT_MATCHES_ALL)
+        val transcriptRoRegex = Regex("\"transcript_ro\"\\s*:\\s*\"(.*?)(?<!\\\\)\"", RegexOption.DOT_MATCHES_ALL)
+
+        val answerEn = answerEnRegex.find(text)?.groupValues?.get(1)
+            ?.replace("\\\"", "\"")?.replace("\\n", "\n")?.trim()
+
+        val answerRo = answerRoRegex.find(text)?.groupValues?.get(1)
+            ?.replace("\\\"", "\"")?.replace("\\n", "\n")?.trim()
+
+        val transcriptEn = transcriptEnRegex.find(text)?.groupValues?.get(1)
+            ?.replace("\\\"", "\"")?.replace("\\n", "\n")?.trim()
+
+        val transcriptRo = transcriptRoRegex.find(text)?.groupValues?.get(1)
+            ?.replace("\\\"", "\"")?.replace("\\n", "\n")?.trim()
+
+        if (!answerEn.isNullOrBlank()) {
+            return ParsedLlmResult(
+                isQuestion = text.contains("\"is_question\":true", ignoreCase = true),
+                transcriptRo = transcriptRo,
+                transcriptEn = transcriptEn ?: originalPrompt,
+                answerEn = answerEn,
+                answerRo = answerRo,
+                followUps = emptyList()
+            )
+        }
 
         return ParsedLlmResult(
             isQuestion = true,

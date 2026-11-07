@@ -75,6 +75,7 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
         val currentGroqModel = carrierProfileRepository.getCloudModel()
         val currentProfile = carrierProfileRepository.getProfile()
         val currentAutoAnswer = carrierProfileRepository.isQuestionAutoAnswerEnabled()
+        val currentSttMode = carrierProfileRepository.getSttLanguageMode()
         _uiState.update {
             it.copy(
                 activeEngineType = carrierProfileRepository.getEngineType(),
@@ -86,6 +87,7 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
                 geminiFallbackModel = currentGeminiFallbackModel,
                 groqApiKey = currentGroqKey,
                 groqModel = currentGroqModel,
+                sttLanguageMode = currentSttMode,
                 isQuestionAutoAnswerEnabled = currentAutoAnswer,
                 carrierProfile = currentProfile,
                 guidanceLanguage = currentProfile.guidanceLanguage,
@@ -491,6 +493,7 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
             SttLanguageMode.ROMANIAN -> SttLanguageMode.BILINGUAL_AUTO
             SttLanguageMode.BILINGUAL_AUTO -> SttLanguageMode.ENGLISH
         }
+        carrierProfileRepository.saveSttLanguageMode(nextLang)
         _uiState.update { it.copy(sttLanguageMode = nextLang) }
         if (_uiState.value.isListening) {
             startAudioStream()
@@ -662,10 +665,18 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
             val res = llmEngine.geminiClient.fetchAvailableModels(apiKey)
             if (res.isSuccess) {
                 val models = res.getOrDefault(emptyList())
+                val currentSelected = _uiState.value.geminiModel
+                val updatedModel = if (models.contains(currentSelected)) {
+                    currentSelected
+                } else {
+                    models.firstOrNull() ?: currentSelected
+                }
+                carrierProfileRepository.saveGeminiModel(updatedModel)
                 _uiState.update {
                     it.copy(
                         isTestingGeminiKey = false,
                         availableGeminiModels = models,
+                        geminiModel = updatedModel,
                         geminiKeyTestMessage = "Valid Key! ${models.size} models found."
                     )
                 }
@@ -688,10 +699,18 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
             val res = llmEngine.groqClient.fetchAvailableModels(apiKey)
             if (res.isSuccess) {
                 val models = res.getOrDefault(emptyList())
+                val currentSelected = _uiState.value.groqModel
+                val updatedModel = if (models.contains(currentSelected)) {
+                    currentSelected
+                } else {
+                    models.firstOrNull() ?: currentSelected
+                }
+                carrierProfileRepository.saveCloudModel(updatedModel)
                 _uiState.update {
                     it.copy(
                         isTestingGroqKey = false,
                         availableGroqModels = models,
+                        groqModel = updatedModel,
                         groqKeyTestMessage = "Valid Key! ${models.size} models found."
                     )
                 }
