@@ -376,31 +376,12 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
 
         val source = _uiState.value.audioInputSource
         val targetLocale = _uiState.value.carrierProfile.guidanceLanguage.bcp47Locale
-        val hasGroqKey = carrierProfileRepository.getGroqApiKey().isNotBlank()
-        val isWhisperPreferred = hasGroqKey && (_uiState.value.sttLanguageMode == SttLanguageMode.BILINGUAL_AUTO || _uiState.value.sttLanguageMode == SttLanguageMode.ROMANIAN)
 
         if (source == AudioInputSource.MICROPHONE) {
-            if (isWhisperPreferred) {
-                // High-performance Groq Whisper LPU Multilingual capture (detects Romanian/English seamlessly)
-                nativeStt.stopListening()
-                audioCaptureJob = viewModelScope.launch(Dispatchers.Default) {
-                    try {
-                        audioRecorder.start(this, inputSource = AudioInputSource.MICROPHONE)
-                        audioRecorder.audioFlow.collect { frame ->
-                            vadDetector.processFrame(frame)
-                        }
-                    } catch (e: CancellationException) {
-                        // Clean cancellation on stop / toggle
-                    } catch (e: Exception) {
-                        processIntent(StealthUiIntent.OnError(e.localizedMessage ?: "Audio record error"))
-                    }
-                }
-            } else {
-                // On-device Google SpeechRecognizer fallback
-                audioRecorder.stop()
-                vadDetector.reset()
-                nativeStt.startListening(_uiState.value.sttLanguageMode, targetLocale)
-            }
+            // Live speech recognizer handling microphone stream with native Google speech engine
+            audioRecorder.stop()
+            vadDetector.reset()
+            nativeStt.startListening(_uiState.value.sttLanguageMode, targetLocale)
         } else if (source == AudioInputSource.SYSTEM_CALL) {
             audioCaptureJob = viewModelScope.launch(Dispatchers.Default) {
                 try {
@@ -524,16 +505,18 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private fun cycleSttLanguage() {
-        val nextLang = when (_uiState.value.sttLanguageMode) {
-            SttLanguageMode.BILINGUAL_AUTO -> SttLanguageMode.ROMANIAN
-            SttLanguageMode.ROMANIAN -> SttLanguageMode.ENGLISH
-            SttLanguageMode.ENGLISH -> SttLanguageMode.BILINGUAL_AUTO
+        val nextLang = if (_uiState.value.sttLanguageMode == SttLanguageMode.ROMANIAN ||
+            _uiState.value.sttLanguageMode == SttLanguageMode.BILINGUAL_AUTO) {
+            SttLanguageMode.ENGLISH
+        } else {
+            SttLanguageMode.ROMANIAN
         }
         carrierProfileRepository.saveSttLanguageMode(nextLang)
         _uiState.update { it.copy(sttLanguageMode = nextLang) }
         hapticHelper.pulseSpeechDetected()
         if (_uiState.value.isListening) {
-            startAudioStream()
+            val targetLocale = _uiState.value.carrierProfile.guidanceLanguage.bcp47Locale
+            nativeStt.startListening(nextLang, targetLocale)
         }
     }
 

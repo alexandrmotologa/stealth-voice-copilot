@@ -52,14 +52,22 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
     var onSpeechStatusChanged: ((isRecognizing: Boolean) -> Unit)? = null
 
     fun startListening(
-        languageMode: com.copilot.stealth.data.models.SttLanguageMode = com.copilot.stealth.data.models.SttLanguageMode.ENGLISH,
+        languageMode: com.copilot.stealth.data.models.SttLanguageMode = com.copilot.stealth.data.models.SttLanguageMode.ROMANIAN,
         targetLocale: String = "ro-RO"
     ) {
         Log.d(TAG, "startListening called with mode=$languageMode, targetLocale=$targetLocale")
+        val langChanged = currentLanguageMode != languageMode || currentTargetLocale != targetLocale
         currentLanguageMode = languageMode
         currentTargetLocale = targetLocale
         isContinuousListeningRequested = true
-        startListeningInternal()
+        if (langChanged) {
+            mainHandler.post {
+                safeDestroyRecognizer()
+                startListeningInternal()
+            }
+        } else {
+            startListeningInternal()
+        }
     }
 
     private fun startListeningInternal() {
@@ -81,23 +89,26 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
                     return@post
                 }
 
+                val primaryLang = when (currentLanguageMode) {
+                    com.copilot.stealth.data.models.SttLanguageMode.ENGLISH -> "en-US"
+                    com.copilot.stealth.data.models.SttLanguageMode.ROMANIAN -> "ro-RO"
+                    com.copilot.stealth.data.models.SttLanguageMode.BILINGUAL_AUTO -> "ro-RO"
+                }
+
                 if (speechRecognizer == null) {
+                    // For English on Android 12+, we can use on-device if present.
+                    // For Romanian, ALWAYS use standard Google SpeechRecognizer to access cloud acoustic models.
                     speechRecognizer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                        currentLanguageMode == com.copilot.stealth.data.models.SttLanguageMode.ENGLISH &&
                         SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
                     ) {
-                        Log.d(TAG, "Creating on-device SpeechRecognizer")
+                        Log.d(TAG, "Creating on-device SpeechRecognizer for English")
                         SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
                     } else {
-                        Log.d(TAG, "Creating standard SpeechRecognizer")
+                        Log.d(TAG, "Creating standard Google SpeechRecognizer for $primaryLang")
                         SpeechRecognizer.createSpeechRecognizer(context)
                     }
                     speechRecognizer?.setRecognitionListener(this)
-                }
-
-                val primaryLang = when (currentLanguageMode) {
-                    com.copilot.stealth.data.models.SttLanguageMode.ENGLISH -> "en-US"
-                    com.copilot.stealth.data.models.SttLanguageMode.ROMANIAN -> currentTargetLocale
-                    com.copilot.stealth.data.models.SttLanguageMode.BILINGUAL_AUTO -> currentTargetLocale
                 }
 
                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
