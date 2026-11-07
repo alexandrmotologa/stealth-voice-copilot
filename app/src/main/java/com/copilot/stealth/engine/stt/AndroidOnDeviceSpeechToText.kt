@@ -97,7 +97,7 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
                 val primaryLang = when (currentLanguageMode) {
                     com.copilot.stealth.data.models.SttLanguageMode.ENGLISH -> "en-US"
                     com.copilot.stealth.data.models.SttLanguageMode.ROMANIAN -> currentTargetLocale
-                    com.copilot.stealth.data.models.SttLanguageMode.BILINGUAL_AUTO -> "en-US"
+                    com.copilot.stealth.data.models.SttLanguageMode.BILINGUAL_AUTO -> currentTargetLocale
                 }
 
                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -108,14 +108,14 @@ class AndroidOnDeviceSpeechToText(private val context: Context) : RecognitionLis
                     putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
                     putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
 
-                    // Generous silence windows to prevent premature cutoffs while user pauses or thinks
+                    // Continuous natural speech listening: generous silence windows
                     putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 2500L)
                     putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1800L)
                     putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1800L)
                     putExtra("android.speech.extra.DICTATION_MODE", true)
 
                     if (currentLanguageMode == com.copilot.stealth.data.models.SttLanguageMode.BILINGUAL_AUTO) {
-                        val additionalLangs = arrayOf("en-US", currentTargetLocale)
+                        val additionalLangs = arrayOf(currentTargetLocale, "en-US")
                         putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", additionalLangs)
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                             putExtra("android.speech.extra.ADDITIONAL_LANGUAGES", additionalLangs)

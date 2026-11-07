@@ -43,6 +43,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -1090,78 +1091,91 @@ private fun EngineCard(
     onClick: () -> Unit
 ) {
     val borderColor = if (isSelected) tagColor else Color(0xFF1E242B)
-    val bgColor = if (isSelected) Color(0xFF111714) else Color(0xFF101317)
+    val bgColor = if (isSelected) Color(0xFF101814) else Color(0xFF0F1216)
 
-    Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = bgColor),
+    Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(bgColor)
             .border(1.dp, borderColor, RoundedCornerShape(12.dp))
             .clickable { onClick() }
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .size(36.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(if (isSelected) tagColor.copy(alpha = 0.15f) else Color(0xFF171D24)),
+            contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = if (isSelected) tagColor else Color(0xFF788594),
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(20.dp)
             )
+        }
 
-            Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = title,
-                        color = Color.White,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(3.dp))
-                            .background(tagColor.copy(alpha = 0.2f))
-                            .padding(horizontal = 5.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = tag,
-                            color = tagColor,
-                            fontSize = 8.5.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(2.dp))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = subtitle,
-                    color = Color(0xFF9EABB8),
-                    fontSize = 11.sp
+                    text = title,
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
-            }
-
-            if (isSelected) {
+                Spacer(modifier = Modifier.width(6.dp))
                 Box(
                     modifier = Modifier
-                        .size(20.dp)
-                        .clip(CircleShape)
-                        .background(tagColor),
-                    contentAlignment = Alignment.Center
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(tagColor.copy(alpha = 0.2f))
+                        .padding(horizontal = 5.dp, vertical = 1.5.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = "Selected",
-                        tint = Color.Black,
-                        modifier = Modifier.size(14.dp)
+                    Text(
+                        text = tag,
+                        color = tagColor,
+                        fontSize = 8.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
                     )
                 }
+            }
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = subtitle,
+                color = Color(0xFF9EABB8),
+                fontSize = 10.5.sp,
+                lineHeight = 14.sp
+            )
+        }
+
+        if (isSelected) {
+            Spacer(modifier = Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .size(20.dp)
+                    .clip(CircleShape)
+                    .background(tagColor),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "Selected",
+                    tint = Color.Black,
+                    modifier = Modifier.size(13.dp)
+                )
             }
         }
     }

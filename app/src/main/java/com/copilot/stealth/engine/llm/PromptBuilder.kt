@@ -81,16 +81,16 @@ object PromptBuilder {
         val languageRules = if (isGuidanceActive) {
             """
             MULTILINGUAL & QUESTION DETECTION PROTOCOL:
-            1. The interlocutor may speak in Romanian, English, or a mix. You must accurately understand both.
-            2. 'transcript_ro': The spoken Romanian transcript (or accurate Romanian translation if spoken in English).
+            1. The interlocutor may speak in Romanian, English, or a mix. You must accurately understand both languages.
+            2. 'transcript_ro': The original Romanian spoken words (or accurate Romanian translation if spoken in English).
             3. 'transcript_en': Accurate, high-quality English translation of what was spoken (or original English if spoken in English).
-            4. 'is_question': Boolean (true if the utterance contains a question, inquiry, request for info, or interview problem; false if it is merely a statement, greeting acknowledgment, or monologue).
+            4. 'is_question': Boolean. Set to TRUE whenever the utterance is an inquiry, question, directive, prompt, or interview request (e.g. 'tell me about yourself', 'spune-mi ceva despre tine', 'descrie experiența ta', 'how do you handle...', 'ce tehnologii folosești'). Set to FALSE ONLY for passive acknowledgments or conversational fillers ('ok', 'da', 'mulțumesc', 'I understand').
             5. 'answer_en':
                - IF is_question is true:
                  $formatRule
                - IF is_question is false:
-                 Provide a concise, fluent English translation and brief contextual reflection (do NOT fabricate an answer to a non-existent question).
-            6. 'answer_ro': Provide a ${lang.displayName} coaching summary highlighting what key points to emphasize.
+                 Provide a natural, conversational 1-sentence English response acknowledging or answering what was said.
+            6. 'answer_ro': Provide a fluent ${lang.displayName} translation and coaching summary of the English answer, explaining key points to emphasize.
             7. 'follow_ups': 1-2 likely technical follow-up questions if it is a question, or empty list if not.
             8. Output STRICT JSON only:
             {"is_question":true,"transcript_ro":"<${lang.displayName} text>","transcript_en":"<English translation>","answer_en":"<English response>","answer_ro":"<${lang.displayName} coaching>","follow_ups":["<follow-up 1>","<follow-up 2>"]}
@@ -101,12 +101,12 @@ object PromptBuilder {
             1. The interlocutor may speak in Romanian, English, or a mix.
             2. 'transcript_ro': null
             3. 'transcript_en': Accurate, high-quality English translation of what was spoken (or original English).
-            4. 'is_question': Boolean (true if the utterance contains a question or inquiry; false if statement).
+            4. 'is_question': Boolean. Set to TRUE for questions, interview prompts, or directives (e.g. 'tell me about yourself', 'spune-mi ceva despre tine').
             5. 'answer_en':
                - IF is_question is true:
                  $formatRule
                - IF is_question is false:
-                 Provide concise English translation / reflection.
+                 Provide a natural, conversational English acknowledgment / reflection.
             6. 'answer_ro': null
             7. 'follow_ups': 1-2 likely technical follow-up questions if question, or empty list if not.
             8. Output STRICT JSON only:

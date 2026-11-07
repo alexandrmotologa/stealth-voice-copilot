@@ -600,8 +600,10 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
                 audioPrompter.whisperAnswerInsight(turn.answerEn)
             }
 
-            // Start speaking cooldown so candidate reading answer aloud does not re-trigger VAD/STT
-            startSpeakingCooldown(12)
+            // Continuous passive listening by default: do not pause or mute unless cooldown is explicitly enabled
+            if (carrierProfileRepository.isSpeakingCooldownEnabled()) {
+                startSpeakingCooldown(10)
+            }
         }
     }
 

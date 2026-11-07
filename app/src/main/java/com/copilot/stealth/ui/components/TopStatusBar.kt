@@ -66,7 +66,7 @@ fun TopStatusBar(
         modifier = modifier
             .fillMaxWidth()
             .background(palette.background)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -74,31 +74,31 @@ fun TopStatusBar(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .size(8.dp)
+                    .size(7.dp)
                     .clip(CircleShape)
                     .background(statusColor)
             )
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(modifier = Modifier.width(5.dp))
             Text(
                 text = statusText,
                 color = statusColor,
-                fontSize = 12.sp,
+                fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
+                letterSpacing = 0.5.sp
             )
 
             if (uiState.lastLatencyMs > 0) {
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "${uiState.lastLatencyMs}ms",
                     color = palette.textMetadata,
-                    fontSize = 11.sp,
+                    fontSize = 10.sp,
                     fontFamily = FontFamily.Monospace
                 )
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(6.dp))
             // Route / Whisper indicator
             val isBt = uiState.isBluetoothHeadsetConnected
             val btPillColor = if (isBt && uiState.isWhisperEnabled) palette.statusActive else if (isBt) palette.highlightAcronym else palette.textMetadata
@@ -108,12 +108,12 @@ fun TopStatusBar(
                     .background(if (isBt) Color(0xFF132328) else Color(0xFF141414))
                     .border(1.dp, if (isBt) Color(0xFF234450) else Color(0xFF222222), RoundedCornerShape(4.dp))
                     .clickable(enabled = isBt && onToggleWhisper != null) { onToggleWhisper?.invoke() }
-                    .padding(horizontal = 6.dp, vertical = 3.dp)
+                    .padding(horizontal = 5.dp, vertical = 2.dp)
             ) {
                 Text(
-                    text = if (isBt) "🎧 WHISPER: ${if (uiState.isWhisperEnabled) "ON" else "OFF"}" else "MIC: INT",
+                    text = if (isBt) "🎧 ${if (uiState.isWhisperEnabled) "ON" else "OFF"}" else "MIC:INT",
                     color = btPillColor,
-                    fontSize = 9.sp,
+                    fontSize = 8.5.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = if (isBt) FontWeight.Bold else FontWeight.Normal
                 )
@@ -162,50 +162,41 @@ fun TopStatusBar(
                     .background(Color(0xFF141414))
                     .border(1.dp, engineColor.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
                     .clickable { onOpenEngineSelection() }
-                    .padding(horizontal = 7.dp, vertical = 4.dp),
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(6.dp)
+                        .size(5.dp)
                         .clip(CircleShape)
                         .background(engineColor)
                 )
-                Spacer(modifier = Modifier.width(5.dp))
+                Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = engineLabel,
                     color = engineColor,
-                    fontSize = 10.sp,
+                    fontSize = 9.5.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold
                 )
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(6.dp))
 
-            Row(
+            Box(
                 modifier = Modifier
+                    .size(28.dp)
                     .clip(RoundedCornerShape(6.dp))
                     .background(Color(0xFF141414))
-                    .border(1.dp, Color(0xFF222222), RoundedCornerShape(6.dp))
-                    .clickable { onOpenTools() }
-                    .padding(horizontal = 8.dp, vertical = 5.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .border(1.dp, Color(0xFF222830), RoundedCornerShape(6.dp))
+                    .clickable { onOpenTools() },
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Settings,
                     contentDescription = "Settings & Tools",
                     tint = palette.textMetadata,
-                    modifier = Modifier.size(13.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = "SETTINGS",
-                    color = palette.textMetadata,
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1
+                    modifier = Modifier.size(15.dp)
                 )
             }
         }

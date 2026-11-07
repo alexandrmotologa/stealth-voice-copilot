@@ -132,6 +132,14 @@ class CarrierProfileRepository(private val context: Context) {
         prefs.edit().putString(KEY_PREFERRED_LOCAL_MODEL, modelName).apply()
     }
 
+    fun isSpeakingCooldownEnabled(): Boolean {
+        return prefs.getBoolean(KEY_SPEAKING_COOLDOWN_ENABLED, false)
+    }
+
+    fun saveSpeakingCooldownEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SPEAKING_COOLDOWN_ENABLED, enabled).apply()
+    }
+
     fun isInitialSetupCompleted(): Boolean {
         return prefs.getBoolean(KEY_SETUP_COMPLETED, true)
     }
@@ -154,6 +162,7 @@ class CarrierProfileRepository(private val context: Context) {
         private const val KEY_SETUP_COMPLETED = "initial_engine_setup_completed"
         private const val KEY_AUTO_ANSWER_QUESTIONS = "auto_answer_questions_enabled"
         private const val KEY_STT_LANGUAGE_MODE = "stt_language_mode"
+        private const val KEY_SPEAKING_COOLDOWN_ENABLED = "speaking_cooldown_enabled"
 
         const val DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
         const val DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-2.0-flash"
