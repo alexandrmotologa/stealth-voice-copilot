@@ -25,6 +25,16 @@ object FreightLexiconNormalizer {
         Regex("(?i)\\b(layower|lay over fee|overnight wait|tomorrow unload)\\b") to "layover",
         Regex("(?i)\\b(mc numba|mc number|carrier mc|what is mc)\\b") to "MC number",
 
+        // Cross-lingual phonetic bleed & ASR artifacts (Romanian <-> English)
+        Regex("(?i)\\bhai\\s+(how\\s+are|how's|what|who|when|where|there|guys|everyone|team|are|do|can)\\b") to "hi $1",
+        Regex("(?i)\\bhai\\b(?=\\s*[?!.,]?$)") to "hi",
+        Regex("(?i)\\buai\\s+(you|did|is|are|do|would|should|could)\\b") to "why $1",
+        Regex("(?i)\\boai\\s+(you|did|is|are|do|would|should|could)\\b") to "why $1",
+        Regex("(?i)\\bhelau\\b") to "hello",
+        Regex("(?i)\\bpliz\\b") to "please",
+        Regex("(?i)\\btenx\\b") to "thanks",
+        Regex("(?i)\\bthenx\\b") to "thanks",
+
         // Romanian spoken loanwords & translated terms
         Regex("(?i)\\b(detenție|detentie|timp de asteptare)\\b") to "detention waiting",
         Regex("(?i)\\b(confirmare de cursa|confirmarea de cursa)\\b") to "Rate Confirmation",
