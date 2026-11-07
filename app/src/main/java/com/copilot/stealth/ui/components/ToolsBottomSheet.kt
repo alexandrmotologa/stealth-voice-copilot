@@ -266,8 +266,8 @@ fun ToolsBottomSheet(
             // STT Language
             val sttName = when (uiState.sttLanguageMode) {
                 SttLanguageMode.ENGLISH -> "English Only (en-US)"
-                SttLanguageMode.ROMANIAN -> "Romanian (ro-RO)"
-                SttLanguageMode.BILINGUAL_AUTO -> "Bilingual Auto"
+                SttLanguageMode.ROMANIAN -> "Romanian Focus (ro-RO)"
+                SttLanguageMode.BILINGUAL_AUTO -> if (uiState.groqApiKey.isNotBlank()) "Bilingual Auto (Groq Whisper)" else "Bilingual Auto (Native)"
             }
             PreferenceClickableRow(
                 title = "Speech Recognition",

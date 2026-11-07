@@ -44,6 +44,7 @@ fun TopStatusBar(
     onOpenTools: () -> Unit,
     onOpenEngineSelection: () -> Unit,
     onToggleWhisper: (() -> Unit)? = null,
+    onCycleSttLanguage: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val palette = LocalStealthPalette.current
@@ -122,19 +123,44 @@ fun TopStatusBar(
 
         // Right: Active Engine Selector Pill + Settings trigger
         Row(verticalAlignment = Alignment.CenterVertically) {
-            val langCode = uiState.carrierProfile.guidanceLanguage.code
-            val langLabel = if (langCode != "OFF") "$langCode➔EN" else "EN"
+            val isWhisper = uiState.groqApiKey.isNotBlank()
+            val sttLabel: String
+            val sttColor: Color
+            val sttBg: Color
+            val sttBorder: Color
+
+            when (uiState.sttLanguageMode) {
+                com.copilot.stealth.data.models.SttLanguageMode.BILINGUAL_AUTO -> {
+                    sttLabel = if (isWhisper) "AUTO (RO⇄EN)" else "RO⇄EN"
+                    sttColor = palette.statusActive
+                    sttBg = Color(0xFF102418)
+                    sttBorder = Color(0xFF1E482C)
+                }
+                com.copilot.stealth.data.models.SttLanguageMode.ROMANIAN -> {
+                    sttLabel = "RO➔EN"
+                    sttColor = Color(0xFF80D8FF)
+                    sttBg = Color(0xFF142430)
+                    sttBorder = Color(0xFF22445E)
+                }
+                com.copilot.stealth.data.models.SttLanguageMode.ENGLISH -> {
+                    sttLabel = "EN ONLY"
+                    sttColor = palette.textMetadata
+                    sttBg = Color(0xFF181818)
+                    sttBorder = Color(0xFF2A2A2A)
+                }
+            }
 
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(4.dp))
-                    .background(Color(0xFF141A1E))
-                    .border(1.dp, Color(0xFF233A48), RoundedCornerShape(4.dp))
-                    .padding(horizontal = 5.dp, vertical = 3.dp)
+                    .background(sttBg)
+                    .border(1.dp, sttBorder, RoundedCornerShape(4.dp))
+                    .clickable(enabled = onCycleSttLanguage != null) { onCycleSttLanguage?.invoke() }
+                    .padding(horizontal = 6.dp, vertical = 3.dp)
             ) {
                 Text(
-                    text = langLabel,
-                    color = Color(0xFF80D8FF),
+                    text = sttLabel,
+                    color = sttColor,
                     fontSize = 9.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold

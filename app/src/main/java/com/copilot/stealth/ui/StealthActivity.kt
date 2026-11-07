@@ -310,7 +310,8 @@ fun StealthScreen(
                 uiState = uiState,
                 onOpenTools = { isToolsSheetOpen = true },
                 onOpenEngineSelection = onOpenEngineSelection,
-                onToggleWhisper = onToggleWhisper
+                onToggleWhisper = onToggleWhisper,
+                onCycleSttLanguage = onCycleSttLanguage
             )
 
             // Collapsible Freight Math Bar (if opened in settings)

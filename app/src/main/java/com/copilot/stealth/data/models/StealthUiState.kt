@@ -17,7 +17,7 @@ data class StealthUiState(
     val isProcessing: Boolean = false,
     val overlayMode: OverlayMode = OverlayMode.LOCKSCREEN,
     val themeMode: DisplayThemeMode = DisplayThemeMode.AMOLED_STANDARD,
-    val sttLanguageMode: SttLanguageMode = SttLanguageMode.ENGLISH,
+    val sttLanguageMode: SttLanguageMode = SttLanguageMode.BILINGUAL_AUTO,
     val isWhisperEnabled: Boolean = false,
     val isCalculatorVisible: Boolean = false,
     val isCarrierProfileOpen: Boolean = false,

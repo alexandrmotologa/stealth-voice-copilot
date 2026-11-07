@@ -88,18 +88,18 @@ class CarrierProfileRepository(private val context: Context) {
         prefs.edit().putString(KEY_CLOUD_MODEL, model.trim()).commit()
     }
 
-    // STT Language Mode (default: ENGLISH)
+    // STT Language Mode (default: BILINGUAL_AUTO)
     fun getSttLanguageMode(): com.copilot.stealth.data.models.SttLanguageMode {
-        val name = prefs.getString(KEY_STT_LANGUAGE_MODE, com.copilot.stealth.data.models.SttLanguageMode.ENGLISH.name)
+        val name = prefs.getString(KEY_STT_LANGUAGE_MODE, com.copilot.stealth.data.models.SttLanguageMode.BILINGUAL_AUTO.name)
         return try {
-            com.copilot.stealth.data.models.SttLanguageMode.valueOf(name ?: com.copilot.stealth.data.models.SttLanguageMode.ENGLISH.name)
+            com.copilot.stealth.data.models.SttLanguageMode.valueOf(name ?: com.copilot.stealth.data.models.SttLanguageMode.BILINGUAL_AUTO.name)
         } catch (_: Exception) {
-            com.copilot.stealth.data.models.SttLanguageMode.ENGLISH
+            com.copilot.stealth.data.models.SttLanguageMode.BILINGUAL_AUTO
         }
     }
 
     fun saveSttLanguageMode(mode: com.copilot.stealth.data.models.SttLanguageMode) {
-        prefs.edit().putString(KEY_STT_LANGUAGE_MODE, mode.name).apply()
+        prefs.edit().putString(KEY_STT_LANGUAGE_MODE, mode.name).commit()
     }
 
     // Translation & Question Answering Preference
