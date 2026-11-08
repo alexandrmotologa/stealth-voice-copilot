@@ -333,6 +333,14 @@ stealth-voice-copilot/
 * Task 9.5: Implement interactive mock interview simulator (`MockInterviewManager` and `MockInterviewSheet`) with candidate readiness scoring and instant feedback.
 * Task 9.6: Implement edge-to-edge window insets, spring micro-interactions, and gesture-controlled floating HUD.
 
+### Phase 10: Multilingual Routing, Acoustic De-Bleeding, and Cloud Fallback Architecture (v1.0.4)
+* Task 10.1: Implement Google Speech Services cloud routing for Romanian (`ro-RO`) in `AndroidOnDeviceSpeechToText`, resolving missing offline package limitations on non-Pixel devices.
+* Task 10.2: Decouple STT language cycling from audio HAL teardown, replacing blocking `AudioRecord.stop()` on the main thread with clean recognizer re-initialization to eliminate IPC binder deadlocks and ANRs.
+* Task 10.3: Design dual-mode status bar language pill (`RO➔EN` vs `EN ONLY`) enabling sub-50ms transitions between Romanian translation and isolated English recognition.
+* Task 10.4: Implement cross-lingual acoustic de-bleed rules in `FreightLexiconNormalizer` to repair phonetic false friend substitutions (`hai how are...` -> `hi how are...`).
+* Task 10.5: Implement automated ASR phonetic repair protocol in `PromptBuilder`, instructing LLMs to clean speech recognition artifacts in `transcript_en` and `transcript_ro`.
+* Task 10.6: Deploy multi-tier hierarchical cloud inference (`LocalLlmEngine`): Google Gemini (Priority 1) with dual-key failover, Groq Cloud LPU (Fallback 1), and local neural on-device execution.
+
 ## 8. Freight Logistics Knowledge Base Reference
 
 | Term | Context | Standard Response Pattern |

@@ -26,38 +26,44 @@
 
 ## Overview
 
-Stealth Voice Copilot is an offline Android application engineered for the Google Pixel 6 Pro. It listens to interviewer questions during US freight dispatching and billing interviews, transcribes spoken English locally, extracts freight domain concepts, and displays concise professional answers in English with optional Romanian translations.
+Stealth Voice Copilot is a discreet real-time voice teleprompter and assistant for Android, engineered for live technical interviews, negotiations, and professional conversations. The application continuously listens to interlocutor questions, transcribes speech, normalizes domain terminology, and displays structured English teleprompter responses on an AMOLED true black display, accompanied by source-language coaching notes.
 
-The entire processing pipeline runs strictly on-device without internet access, third-party cloud APIs, or outbound network calls.
+The system supports both cloud-accelerated inference (Google Gemini and Groq Cloud LPU) and local on-device execution (Google Tensor NPU and MediaPipe LLM), operating with graceful offline fallback when no active network is available.
 
 ## Core Capabilities
 
-* **Multi-Tier Hierarchical Inference Engine:** Routes queries across a resilient prioritized chain:
-  1. Google Gemini (Google AI Studio): Priority 1 cloud provider with 1M+ token context and 1,500 requests per day on the free tier (`gemini-2.5-flash`, `gemini-2.0-flash`).
-  2. Groq Cloud LPU: Fallback 1 provider with sub-250ms latency (`qwen/qwen3.8-27b`, `llama-3.3-70b-versatile`).
-  3. Gemini Alternative Retry: Fallback 2 attempt using secondary Flash variants.
-  4. On-Device Local Neural Model: Fallback 3 running quantized models (Llama 3.2 1B / Gemma 2 2B) natively on Google Tensor G1 NPU/GPU.
-  5. Offline Mode: Instant zero-latency bypass directly to the on-device model when no active internet connection is detected.
-* **Dynamic Multilingual Listening & Auto-Answer:** Adapts speech recognition to the user-selected language (Romanian, Spanish, German, French, Italian, Russian, Ukrainian, Polish, Portuguese, Turkish, English):
-  * Transcribes spoken audio in the source language and translates it into English.
-  * Evaluates whether the spoken input contains a question or inquiry.
-  * If a question is detected, automatically synthesizes structured English teleprompter talking points and source-language coaching notes.
-  * If a statement is detected, displays clean English translation context without generating artificial interview responses.
-* **On-Device Speech Pipeline:** Combines Silero VAD v5 with on-device speech recognition for continuous capture on the Tensor processor.
-* **Covert Whisper Earpiece Prompter:** Whispers concise numbers and key answer excerpts directly into connected Bluetooth earbuds (Pixel Buds) with zero speaker leakage.
-* **Carrier Profile Live Editor:** In-app AMOLED bottom sheet allowing instant customization of MC number, USDOT, fleet capacity, equipment types, and factoring details.
-* **Mock Interview Practice Simulator:** Integrated training mode generating randomized dispatch and billing scenarios, scoring candidate readiness from 0 to 100%.
-* **Real-Time Freight Math Engine:** Live on-screen calculator (`FreightMathBar`) computing billable detention hours, gross and net RPM, and FMCSA HOS feasibility windows with one-tap quote insertion.
-* **Covert Glance Syntax Highlighting:** Formats answers with peripheral vision cues highlighting monetary amounts in green, legal freight acronyms in cyan, and critical time limits in amber.
-* **Zero-Light Covert Privacy Themes:** Supports AMOLED Standard, Night Vision Red, and Amber Diffuse display modes to eliminate light reflection in dark or low-visibility interview environments.
-* **Bluetooth Audio Route Detection:** Continuously detects covert wireless earpieces (Pixel Buds, BLE headsets) versus internal phone microphone routing with on-screen route confirmation.
-* **Internal Audio and VoIP In-Call Capture:** Supports capturing internal speakerphone or conference calls via `AudioPlaybackCaptureConfiguration` and `VOICE_COMMUNICATION` capture streams.
-* **Encrypted Transcripts and Panic Wipe:** Exports full question-and-answer transcripts secured by AES-256-GCM encryption, while a rapid Volume Up double-click triggers an emergency panic wipe of RAM, disk cache, and clipboard.
-* **AMOLED True Black Overlay:** Renders directly over the lockscreen without requiring device unlock, using `#000000` background to minimize battery drain and reduce display illumination.
-* **Gesture-Interactive Floating HUD:** Provides a secondary discreet overlay mode with adjustable transparency and edge-minimize pill for Zoom or Google Meet.
-* **Covert Physical Controls:** Volume Up double-tap initiates panic wipe; Volume Down long-press toggles coaching translations; Quick Settings tile enables one-tap activation from the lockscreen shade.
-* **Acoustic Preprocessing:** Leverages hardware-backed Acoustic Echo Cancellation (AEC) and Noise Suppression to filter HVAC hum and speaker echo.
-* **US Freight Domain Grounding:** Preloaded with industry practices covering Rate Confirmations, Bill of Lading (BOL), Proof of Delivery (POD), Factoring NOAs, Detention calculations, Layover fees, and TONU claims.
+* **Dual-Mode Speech Recognition with Instant Toggle:**
+  * **RO➔EN (Romanian to English):** Routes speech capture directly to Google Speech Services (`ro-RO`) cloud acoustic models. Accurately transcribes spoken Romanian without vendor ROM offline pack limitations, translates the inquiry to English, and synthesizes English teleprompter talking points plus Romanian coaching summaries.
+  * **EN ONLY (English Direct):** Isolates speech recognition strictly to `en-US`. Eliminates cross-lingual acoustic bleed, ensuring English phonemes (such as "hi") are never misclassified as Romanian loanwords (such as "hai").
+  * **Zero-Lockup UI Switcher:** One-tap pill in the top status bar switches active speech models in under 50ms without audio HAL teardown or thread blocking.
+
+* **Cross-Lingual Acoustic De-Bleeding:**
+  * **Lexicon Normalizer:** Sub-millisecond regex normalization in `FreightLexiconNormalizer` resolving frequent speech recognition phonetic artifacts (`hai how are...` -> `hi how are...`, `uai...` -> `why...`, `helau` -> `hello`).
+  * **LLM Speech Reconstruction:** Automated ASR repair protocol in `PromptBuilder` instructing the reasoning model to reconstruct the authentic spoken utterance in `transcript_en` and `transcript_ro` before generating the response.
+
+* **Multi-Tier Hierarchical Inference Engine:**
+  * **Google Gemini (Priority 1):** Primary cloud inference using Google AI Studio (`gemini-2.5-flash`, `gemini-2.0-flash`) with structured JSON mode and dual API key failover.
+  * **Groq Cloud LPU (Fallback 1):** Sub-250ms ultra-low latency failover provider (`llama-3.3-70b-versatile`, `llama-3.1-8b-instant`).
+  * **Gemini Alternative Flash (Fallback 2):** Secondary variant retry before falling back to local hardware.
+  * **On-Device Local Neural Model (Fallback 3):** Executes quantized models (Llama 3.2 1B or Gemma 2 2B) natively on Google Tensor G1 NPU/GPU using MediaPipe Tasks GenAI.
+  * **Offline Mode:** Instant bypass directly to the on-device model whenever internet connectivity is unavailable.
+
+* **Domain Grounding and Custom Profiles:**
+  * **Candidate Technical Interview:** Grounding for software engineering, system design, and AI architectures, with customizable candidate background, target company, target role, and job description requirements.
+  * **General Conversational Assistant:** Open-ended conversational mode without domain constraints.
+  * **US Freight Dispatching and Logistics:** Preloaded with commercial transportation practices (Rate Confirmations, BOL, POD, Factoring NOA, Detention billing, Layover, and TONU).
+  * **Custom System Prompt:** Direct user-defined persona and instructions.
+  * **Prompter Styles:** Configurable between Anchor Bullets (conversational hook sentence with 2 to 3 bullet points) and Full Broadcast Sentences (fluent verbatim read-aloud text).
+
+* **Multilingual Coaching Languages:**
+  * Supports real-time coaching translation and summaries in Romanian, Spanish, German, French, Italian, Russian, Ukrainian, Polish, Portuguese, Turkish, and English.
+
+* **Covert Display and Controls:**
+  * **AMOLED True Black Lockscreen:** Renders over the lockscreen with `#000000` background to minimize illumination and preserve battery.
+  * **Floating System HUD:** Secondary transparent overlay for video conference applications (Zoom, Microsoft Teams, Google Meet).
+  * **Covert Whisper Earpiece:** Whispers key talking points directly into connected Bluetooth earbuds (Pixel Buds) with zero speaker leakage.
+  * **Covert Hardware Controls:** Rapid Volume Up double-tap triggers emergency panic wipe of session RAM and disk cache; Volume Down long-press toggles coaching notes.
+  * **Glance Syntax Highlighting:** High-contrast color hierarchy with English answers in `#D0D0D0` (18sp bold), interviewer questions in `#666666`, and coaching notes in emerald/khaki italic.
 
 ## System Architecture
 
@@ -65,29 +71,40 @@ The entire processing pipeline runs strictly on-device without internet access, 
 [Interviewer Audio]
        |
        v
-[AudioRecord 16kHz PCM] ---> [AEC & Hardware Noise Suppression]
-       |
-       v
-[Silero VAD v5 Engine]
-       |
-       | (Speech completed, silence > 800ms)
-       v
-[Sherpa-ONNX STT Engine]
-       |
-       v English Transcript
-[Freight Lexicon Normalizer & Prompt Assembler]
-       |
-       v
-[Hybrid Inference Engine]
-       |-- Local MediaPipe LLM (Llama 3.2 1B / Gemma 2B)
-       \-- Deterministic Freight Knowledge Engine (instant fallback)
-       |
-       v Structured Result
-[AMOLED Lockscreen Activity / Floating HUD]
-       |-- Interlocutor Question (EN)
-       |-- Question Translation (RO) [Optional]
-       |-- Recommended Response (EN)
-       \-- Concept Notes (RO) [Optional]
++-------------------------------------------------------+
+| Audio Ingestion & Acoustic Preprocessing              |
+| (16kHz PCM, AEC, Hardware Noise Suppression)          |
++--------------------------+----------------------------+
+                           |
+                           v
++-------------------------------------------------------+
+| Speech Recognition Engine                             |
+|  - EN ONLY mode: On-device / cloud en-US isolator     |
+|  - RO➔EN mode: Google Cloud ro-RO acoustic decoder    |
++--------------------------+----------------------------+
+                           | Raw Transcript
+                           v
++-------------------------------------------------------+
+| Lexicon Normalizer & Phonetic De-Bleed Filter         |
+| (Sub-1ms regex cleanup of cross-lingual artifacts)    |
++--------------------------+----------------------------+
+                           | Normalized Text
+                           v
++-------------------------------------------------------+
+| Hierarchical LLM Inference Router                     |
+|  1. Google Gemini (P1, gemini-2.5-flash / dual keys)  |
+|  2. Groq Cloud LPU (FB1, llama-3.3-70b-versatile)     |
+|  3. Gemini Alternative Flash (FB2)                    |
+|  4. Local MediaPipe GenAI (FB3 / Offline, Llama 3.2)  |
++--------------------------+----------------------------+
+                           | CopilotTurn (JSON)
+                           v
++-------------------------------------------------------+
+| Presentation Layer                                    |
+|  - AMOLED True Black Lockscreen (StealthActivity)     |
+|  - Floating Mini HUD Overlay (StealthOverlayService)  |
+|  - Bluetooth Earpiece Whisper (AudioPrompter)         |
++-------------------------------------------------------+
 ```
 
 ## Hardware and System Requirements

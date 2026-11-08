@@ -95,43 +95,74 @@ The VAD module runs `silero_vad.onnx` v5 inside the ONNX Runtime for Android (`c
 * **Buffer Flush**: The accumulated PCM frame buffer is extracted, converted to normalized IEEE 754 32-bit floats (`-1.0f` to `1.0f`), and dispatched to the STT worker.
 * **Energy Detector Fallback**: In the event that the ONNX model fails to load, a Root Mean Square (RMS) threshold energy detector operates automatically to avoid halting the service.
 
-## 4. Speech-to-Text Subsystem (Sherpa-ONNX)
+## 4. Speech-to-Text Subsystem
 
-### 4.1 Engine Architecture
-Transcription uses the Sherpa-ONNX offline recognizer:
-* Whisper Base English model quantized with int8 weights (`sherpa-onnx-whisper-base.en`).
-* Fallback to streaming Zipformer for lower latency when available.
+### 4.1 Dual-Channel Engine Architecture
+Speech recognition operates through `AndroidOnDeviceSpeechToText`, routing audio across two distinct modes to maximize accuracy and eliminate acoustic confusion:
 
-### 4.2 Lexicon Normalization
-Acoustic models occasionally mishear specialized freight industry jargon. The `FreightLexiconNormalizer` scans raw transcripts and performs regex and phonetic corrections:
-* "rate con" / "ray con" / "rate calm" -> `Rate Confirmation`
-* "b o l" / "bowl" / "be o el" -> `BOL`
-* "p o d" / "pee oh dee" -> `POD`
-* "tony" / "toe new" / "t o n u" -> `TONU`
-* "h o s" / "hours of service" -> `HOS`
-* "lumbar fee" / "lumber receipt" -> `Lumper fee`
-* "noa" / "notice of assignment" -> `Notice of Assignment`
+1. **RO➔EN (Romanian to English Mode):**
+   * Configures intent parameters with `RecognizerIntent.EXTRA_LANGUAGE = "ro-RO"`.
+   * Directly invokes `SpeechRecognizer.createSpeechRecognizer(context)`, connecting to Google Speech Services cloud acoustic models. This bypasses vendor ROM offline package limitations where non-Pixel devices lack pre-downloaded Romanian neural acoustic models.
+   * Transcribes Romanian utterances with high grammatical fidelity, forwarding raw text to the normalizer and LLM translation pipeline.
+
+2. **EN ONLY (English Direct Mode):**
+   * Configures intent parameters with `RecognizerIntent.EXTRA_LANGUAGE = "en-US"`.
+   * On Android 12+ devices with pre-installed English models, leverages `SpeechRecognizer.createOnDeviceSpeechRecognizer(context)` for ultra-low latency on-device transcription, with automatic fallback to standard recognition.
+   * Strips secondary language flags, isolating the acoustic decoder to English phonemes and preventing cross-lingual false friend substitutions.
+
+3. **Fast Language Switching:**
+   * Switching between `RO➔EN` and `EN ONLY` via the top status bar pill executes within 50 milliseconds.
+   * Recognizer instances are destroyed and re-initialized cleanly on the main application Handler, avoiding Audio HAL driver stops or synchronous binder deadlocks.
+
+### 4.2 Phonetic De-Bleed and Lexicon Normalization
+Acoustic decoders listening in multilingual or non-native phonetic spaces occasionally suffer from cross-lingual acoustic bleed or mishear industry acronyms. The `FreightLexiconNormalizer` executes sequential regex replacements in under 1 millisecond:
+
+* **Cross-Lingual Phonetic De-Bleeding:**
+  * `hai (how are|how's|what|who|when|where|there|guys|team)` -> `hi $1`
+  * `uai / oai (you|did|is|are|do|would|should|could)` -> `why $1`
+  * `helau` -> `hello`
+  * `pliz` -> `please`
+  * `tenx / thenx` -> `thanks`
+* **Freight and Logistics Acronyms:**
+  * "rate con" / "ray con" / "rate calm" -> `Rate Confirmation`
+  * "b o l" / "bowl" / "be o el" -> `BOL`
+  * "p o d" / "pee oh dee" -> `POD`
+  * "tony" / "toe new" / "t o n u" -> `TONU`
+  * "h o s" / "hours of service" -> `HOS`
+  * "lumbar fee" / "lumber receipt" -> `Lumper fee`
+  * "noa" / "notice of assignment" -> `Notice of Assignment`
 
 ## 5. Inference and Knowledge Layer
 
-### 5.1 Hybrid Dual-Engine Architecture
-To ensure continuous operation regardless of memory constraints or cold model loads, the inference subsystem coordinates two distinct engines:
+### 5.1 Multi-Tier Hierarchical Inference Engine
+To guarantee zero failure during live interviews, the inference subsystem coordinates a prioritized fallback chain:
 
-1. **Local Neural Engine (`LocalLlmEngine`)**:
-   * Uses Google AI Edge MediaPipe Tasks GenAI (`Llama-3.2-1B-Instruct` or `Gemma-2-2B-IT`).
-   * Emits tokens asynchronously into a `SharedFlow<String>`.
-   * Enforces strict structured JSON output parsing.
+1. **Google Gemini (Priority 1):**
+   * Targets `gemini-2.5-flash` or `gemini-2.0-flash` through Google AI Studio REST endpoints.
+   * Enforces strict structured JSON output via `responseMimeType: "application/json"`.
+   * Implements automated dual API key failover: if the primary key exceeds rate limits or fails, the client instantly retries with the backup key.
 
-2. **Deterministic Logistics Engine (`FreightKnowledgeEngine`)**:
-   * A zero-latency, rule-based expert system containing over 100 question categories and standard professional answers.
-   * Calculates similarity scores based on Jaccard token overlap and keyword density.
-   * Operates instantly (sub-5ms) without allocating GPU or NPU resources.
+2. **Groq Cloud LPU (Fallback 1):**
+   * Ultra-fast LPUs delivering sub-250ms time-to-first-token using `llama-3.3-70b-versatile` or `llama-3.1-8b-instant`.
+   * Activated automatically when Gemini returns network timeouts or HTTP errors.
 
-### 5.2 Token Budget Optimization
-When Romanian translations are disabled by the user:
-* The system prompt strips Romanian translation instructions.
-* The expected output drops from ~80 tokens to ~35 tokens.
-* Inference latency on the Pixel 6 Pro drops to 1.0 to 1.5 seconds.
+3. **Gemini Alternative Flash Retry (Fallback 2):**
+   * Secondary retry attempting lighter Flash model variants before delegating to local device silicon.
+
+4. **Local Neural Model (Fallback 3 / Offline Mode):**
+   * Uses Google AI Edge MediaPipe Tasks GenAI running quantized `Llama-3.2-1B-Instruct` or `Gemma-2-2B-IT` locally on Google Tensor G1 NPU/GPU.
+   * If the device is offline, network queries are bypassed immediately, executing local inference with zero timeout latency.
+
+5. **Deterministic Knowledge Engine (Instant Emergency Fallback):**
+   * Rule-based expert system containing preloaded question categories and verified answers, operating in under 5ms without neural allocations.
+
+### 5.2 Context Assembly and ASR Phonetic Reconstruction
+The `PromptBuilder` constructs prompt contexts tailored to the active profile mode:
+* **Candidate Technical Interview:** Grounds persona as a Senior Software and AI Systems Engineer, incorporating candidate context, target company, target role, and job description requirements.
+* **General Conversational:** Unconstrained assistant answering freely on any topic.
+* **Carrier Fleet Dispatch:** Preloaded with commercial fleet credentials, equipment types, and standard accessorial rates.
+* **ASR Phonetic Reconstruction Protocol:** Instructs the LLM to inspect the incoming utterance for speech recognition slips (such as non-native accents or cross-lingual phonetic bleed), reconstruct the true intended question in `transcript_en` and `transcript_ro`, and format the teleprompter output accordingly.
+* **Prompter Styles:** Supports `ANCHOR_BULLETS` (conversational hook plus 2 to 3 bold bullet points) and `FULL_SENTENCE` (fluent verbatim read-aloud text).
 
 ## 6. User Interface and Presentation
 
