@@ -37,9 +37,10 @@ enum class GuidanceLanguage(
 }
 
 @Serializable
-enum class PrompterStyle {
-    ANCHOR_BULLETS, // Hook sentence + 2-3 bold talking points
-    FULL_SENTENCE   // Verbatim speech
+enum class PrompterStyle(val displayName: String) {
+    ANCHOR_BULLETS("Bullet Anchors"),       // Hook sentence + 2-3 bold talking points
+    KEYWORD_ANCHORS("Keyword Badges"),      // High-glance badge chips [Anchor 1] [Anchor 2]
+    FULL_SENTENCE("Verbatim Script")        // Full spoken sentences
 }
 
 @Serializable
@@ -49,9 +50,11 @@ data class CarrierProfile(
     val guidanceLanguage: GuidanceLanguage = GuidanceLanguage.ROMANIAN,
     val customPrompt: String = "",
     val candidateContext: String = "",
+    val resumeFileName: String? = null,
     val targetRole: String = "",
     val targetCompany: String = "",
     val jobDescription: String = "",
+    val jobDescriptionFileName: String? = null,
     val fontSize: TeleprompterFontSize = TeleprompterFontSize.LARGE,
     // Freight & fleet identity fields (for freight mode)
     val companyName: String = "Apex Freight Logistics LLC",

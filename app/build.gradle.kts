@@ -95,6 +95,12 @@ dependencies {
     // Google MediaPipe Tasks GenAI (Local On-Device LLM Inference)
     implementation("com.google.mediapipe:tasks-genai:0.10.14")
 
+    // Lightweight Embedded Web & WebSocket Server for PC Teleprompter Mirror
+    implementation("org.nanohttpd:nanohttpd-websocket:2.3.1")
+
+    // Resume / CV & Job Description Ingestion (PDF text extraction)
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+
     // Unit Testing
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")

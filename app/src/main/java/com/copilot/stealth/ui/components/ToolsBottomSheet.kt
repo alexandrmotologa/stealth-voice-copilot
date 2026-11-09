@@ -67,6 +67,8 @@ fun ToolsBottomSheet(
     onOpenEngineSelection: (() -> Unit)? = null,
     onCycleGuidanceLanguage: () -> Unit = {},
     onCyclePrompterStyle: () -> Unit = {},
+    onToggleWebMirror: () -> Unit = {},
+    onTogglePacingCoach: () -> Unit = {},
     onScenarioSelected: (String) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -216,6 +218,16 @@ fun ToolsBottomSheet(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Web Teleprompter Mirror
+            PreferenceToggleRow(
+                title = "Web Teleprompter Mirror",
+                subtitle = if (uiState.isWebMirrorRunning && uiState.webMirrorUrl != null)
+                    "Active at ${uiState.webMirrorUrl} (Open on laptop under webcam)"
+                else "Stream questions & prompter answers live to laptop browser (:8765)",
+                checked = uiState.isWebMirrorRunning,
+                onCheckedChange = { onToggleWebMirror() }
+            )
+
             // Whisper prompter switch
             PreferenceToggleRow(
                 title = "Whisper Earpiece Prompter",
@@ -243,12 +255,21 @@ fun ToolsBottomSheet(
             // Prompter Delivery Style
             val styleName = when (uiState.carrierProfile.prompterStyle) {
                 PrompterStyle.ANCHOR_BULLETS -> "Anchor Bullets (Talking Points)"
+                PrompterStyle.KEYWORD_ANCHORS -> "Keyword Badges (Glance Chips)"
                 PrompterStyle.FULL_SENTENCE -> "Full Script (Verbatim)"
             }
             PreferenceClickableRow(
                 title = "Prompter Delivery Style",
                 currentValue = styleName,
                 onClick = onCyclePrompterStyle
+            )
+
+            // Speaking Pacing Coach
+            PreferenceToggleRow(
+                title = "Speaking Pacing Coach",
+                subtitle = "Subtle 135 WPM breathing rhythm bar and duration estimate",
+                checked = uiState.isPacingCoachEnabled,
+                onCheckedChange = { onTogglePacingCoach() }
             )
 
             // Theme selector row

@@ -1,5 +1,7 @@
 package com.copilot.stealth.ui.components
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,12 +28,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -43,7 +47,11 @@ import com.copilot.stealth.data.models.GuidanceLanguage
 import com.copilot.stealth.data.models.ProfileMode
 import com.copilot.stealth.data.models.PrompterStyle
 import com.copilot.stealth.data.models.TeleprompterFontSize
+import com.copilot.stealth.engine.document.DocumentIngestionHelper
 import com.copilot.stealth.ui.theme.StealthPalette
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * AI Teleprompter Profile & Prompt Configuration Sheet.
@@ -63,10 +71,57 @@ fun CarrierProfileSheet(
     var selectedPrompterStyle by remember { mutableStateOf(currentProfile.prompterStyle) }
     var selectedGuidanceLang by remember { mutableStateOf(currentProfile.guidanceLanguage) }
     var candidateContext by remember { mutableStateOf(currentProfile.candidateContext) }
+    var resumeFileName by remember { mutableStateOf(currentProfile.resumeFileName) }
     var customPrompt by remember { mutableStateOf(currentProfile.customPrompt) }
     var targetCompany by remember { mutableStateOf(currentProfile.targetCompany) }
     var targetRole by remember { mutableStateOf(currentProfile.targetRole) }
     var jobDescription by remember { mutableStateOf(currentProfile.jobDescription) }
+    var jobDescriptionFileName by remember { mutableStateOf(currentProfile.jobDescriptionFileName) }
+
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var isExtractingResume by remember { mutableStateOf(false) }
+    var isExtractingJd by remember { mutableStateOf(false) }
+
+    val resumeLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            coroutineScope.launch(Dispatchers.IO) {
+                isExtractingResume = true
+                val result = DocumentIngestionHelper.extractTextFromUri(context, it)
+                withContext(Dispatchers.Main) {
+                    isExtractingResume = false
+                    result.onSuccess { doc ->
+                        candidateContext = doc.text
+                        resumeFileName = doc.fileName
+                    }.onFailure { err ->
+                        android.widget.Toast.makeText(context, "CV extraction error: ${err.message}", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+    }
+
+    val jdLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            coroutineScope.launch(Dispatchers.IO) {
+                isExtractingJd = true
+                val result = DocumentIngestionHelper.extractTextFromUri(context, it)
+                withContext(Dispatchers.Main) {
+                    isExtractingJd = false
+                    result.onSuccess { doc ->
+                        jobDescription = doc.text
+                        jobDescriptionFileName = doc.fileName
+                    }.onFailure { err ->
+                        android.widget.Toast.makeText(context, "JD extraction error: ${err.message}", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+    }
 
     // Freight fields
     var companyName by remember { mutableStateOf(currentProfile.companyName) }
@@ -221,16 +276,29 @@ fun CarrierProfileSheet(
                     letterSpacing = 0.5.sp
                 )
                 Spacer(modifier = Modifier.height(4.dp))
+                DocumentAttachmentCard(
+                    label = "INGEST JOB SPEC (PDF / TXT / MD)",
+                    fileName = jobDescriptionFileName,
+                    charCount = jobDescription.length,
+                    isLoading = isExtractingJd,
+                    palette = palette,
+                    onPickFile = { jdLauncher.launch("*/*") },
+                    onRemoveFile = {
+                        jobDescriptionFileName = null
+                        jobDescription = ""
+                    }
+                )
+                Spacer(modifier = Modifier.height(6.dp))
                 MultiLineInputField(
                     value = jobDescription,
                     placeholder = "Paste key stack requirements or interview focus points from the job description...",
                     palette = palette,
                     onValueChange = { jobDescription = it }
                 )
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 Text(
-                    text = "CANDIDATE RESUME & INTERVIEW CONTEXT",
+                    text = "CANDIDATE RESUME & CV CONTEXT",
                     color = palette.textMetadata,
                     fontSize = 9.sp,
                     fontFamily = FontFamily.Monospace,
@@ -238,9 +306,22 @@ fun CarrierProfileSheet(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Information entered here is stored strictly on your device in private memory.",
+                    text = "Stored privately on your device. Grounding automatically tailors AI talking points.",
                     color = palette.textMetadata.copy(alpha = 0.7f),
                     fontSize = 10.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                DocumentAttachmentCard(
+                    label = "INGEST RESUME / CV (PDF / TXT / MD)",
+                    fileName = resumeFileName,
+                    charCount = candidateContext.length,
+                    isLoading = isExtractingResume,
+                    palette = palette,
+                    onPickFile = { resumeLauncher.launch("*/*") },
+                    onRemoveFile = {
+                        resumeFileName = null
+                        candidateContext = ""
+                    }
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 MultiLineInputField(
@@ -351,6 +432,13 @@ fun CarrierProfileSheet(
             ) { selectedPrompterStyle = PrompterStyle.ANCHOR_BULLETS }
 
             FontSizeChip(
+                label = "KEYWORD BADGES",
+                isSelected = selectedPrompterStyle == PrompterStyle.KEYWORD_ANCHORS,
+                palette = palette,
+                modifier = Modifier.weight(1f)
+            ) { selectedPrompterStyle = PrompterStyle.KEYWORD_ANCHORS }
+
+            FontSizeChip(
                 label = "FULL SCRIPT",
                 isSelected = selectedPrompterStyle == PrompterStyle.FULL_SENTENCE,
                 palette = palette,
@@ -441,10 +529,12 @@ fun CarrierProfileSheet(
                         prompterStyle = selectedPrompterStyle,
                         guidanceLanguage = selectedGuidanceLang,
                         candidateContext = candidateContext.trim(),
+                        resumeFileName = resumeFileName,
                         customPrompt = customPrompt.trim(),
                         targetCompany = targetCompany.trim(),
                         targetRole = targetRole.trim(),
                         jobDescription = jobDescription.trim(),
+                        jobDescriptionFileName = jobDescriptionFileName,
                         fontSize = selectedFontSize,
                         companyName = companyName.trim(),
                         mcNumber = mcNumber.trim(),
@@ -612,6 +702,129 @@ private fun ProfileInputField(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
+        }
+    }
+}
+
+@Composable
+private fun DocumentAttachmentCard(
+    label: String,
+    fileName: String?,
+    charCount: Int,
+    isLoading: Boolean,
+    palette: StealthPalette,
+    onPickFile: () -> Unit,
+    onRemoveFile: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(6.dp))
+            .background(if (fileName != null) Color(0xFF101B14) else Color(0xFF141414))
+            .border(
+                1.dp,
+                if (fileName != null) palette.statusActive.copy(alpha = 0.6f) else Color(0xFF262626),
+                RoundedCornerShape(6.dp)
+            )
+            .clickable(enabled = !isLoading && fileName == null) { onPickFile() }
+            .padding(horizontal = 12.dp, vertical = 9.dp)
+    ) {
+        if (isLoading) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(palette.statusActive)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "EXTRACTING DOCUMENT TEXT...",
+                    color = palette.statusActive,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        } else if (fileName != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "📄",
+                        fontSize = 13.sp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = fileName,
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                        val wordCount = (charCount / 5).coerceAtLeast(1)
+                        Text(
+                            text = "$charCount chars • ~$wordCount words • Ingested",
+                            color = palette.statusActive,
+                            fontSize = 9.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0xFF241414))
+                        .border(1.dp, Color(0xFF552222), RoundedCornerShape(4.dp))
+                        .clickable { onRemoveFile() }
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "REMOVE",
+                        color = Color(0xFFFF6B6B),
+                        fontSize = 9.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "+ 📄",
+                        color = palette.highlightAcronym,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = label,
+                        color = palette.highlightAcronym,
+                        fontSize = 10.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Text(
+                    text = "PDF / TXT / MD",
+                    color = palette.textMetadata,
+                    fontSize = 9.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
         }
     }
 }

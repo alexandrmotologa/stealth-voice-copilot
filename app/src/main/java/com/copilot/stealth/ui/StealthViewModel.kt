@@ -25,6 +25,8 @@ import com.copilot.stealth.engine.stt.AndroidOnDeviceSpeechToText
 import com.copilot.stealth.engine.stt.GroqWhisperClient
 import com.copilot.stealth.engine.stt.SherpaSpeechToText
 import com.copilot.stealth.data.repository.FreightKnowledgeEngine
+import com.copilot.stealth.engine.network.NetworkHelper
+import com.copilot.stealth.engine.web.WebTeleprompterServer
 import com.copilot.stealth.service.StealthOverlayService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -64,6 +66,7 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
     private var audioCaptureJob: Job? = null
     private var watchdogJob: Job? = null
     private var cooldownJob: Job? = null
+    private var webServer: WebTeleprompterServer? = null
     private var lastSpeechTimestamp = System.currentTimeMillis()
 
     init {
@@ -100,6 +103,7 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
         setupTranscriptCollector()
         setupBluetoothCollector()
         startAutoStandbyWatchdog()
+        setupWebMirrorBroadcaster()
     }
 
     private fun checkModelAvailability() {
@@ -343,6 +347,12 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
                 )
                 _uiState.update { it.copy(lastHosResult = res) }
             }
+            is StealthUiIntent.ToggleWebMirror -> toggleWebMirror()
+            is StealthUiIntent.ExecuteFollowUpAction -> executeFollowUpAction(intent.turnIndex, intent.actionType)
+            is StealthUiIntent.SetPalmBlackout -> _uiState.update { it.copy(isPalmBlackoutActive = intent.isBlackout) }
+            is StealthUiIntent.ToggleSearch -> _uiState.update { it.copy(isSearchOpen = !it.isSearchOpen, searchQuery = if (it.isSearchOpen) "" else it.searchQuery) }
+            is StealthUiIntent.SetSearchQuery -> _uiState.update { it.copy(searchQuery = intent.query) }
+            is StealthUiIntent.TogglePacingCoach -> _uiState.update { it.copy(isPacingCoachEnabled = !it.isPacingCoachEnabled) }
         }
     }
 
@@ -460,8 +470,8 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
 
     private fun exportTranscript() {
         val turns = _uiState.value.currentTurns
-        val plainText = exportManager.formatPlainText(turns)
-        exportManager.copyToClipboard("Stealth Interview Transcript", plainText)
+        val mdText = exportManager.formatMarkdown(turns, _uiState.value.carrierProfile)
+        exportManager.copyToClipboard("Stealth Interview Transcript", mdText)
         hapticHelper.pulseAnswerReady()
     }
 
@@ -770,8 +780,120 @@ class StealthViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    private fun setupWebMirrorBroadcaster() {
+        viewModelScope.launch {
+            _uiState.collect { state ->
+                if (state.isWebMirrorRunning) {
+                    val engineLabel = if (state.activeEngineType == EngineType.HYBRID) {
+                        if (state.geminiApiKey.isNotBlank()) "GEMINI (P1)"
+                        else if (state.groqApiKey.isNotBlank()) "GROQ (FB1)"
+                        else "CLOUD (SETUP)"
+                    } else {
+                        state.preferredLocalModel
+                    }
+                    webServer?.broadcastState(
+                        isListening = state.isListening,
+                        isProcessing = state.isProcessing,
+                        sttLanguageMode = state.sttLanguageMode.name,
+                        activeEngine = engineLabel,
+                        partialTranscript = state.livePartialTranscript,
+                        turns = state.currentTurns
+                    )
+                }
+            }
+        }
+    }
+
+    private fun toggleWebMirror() {
+        if (_uiState.value.isWebMirrorRunning) {
+            stopWebMirror()
+        } else {
+            startWebMirror()
+        }
+    }
+
+    private fun startWebMirror() {
+        try {
+            if (webServer == null) {
+                webServer = WebTeleprompterServer(WebTeleprompterServer.DEFAULT_PORT).apply {
+                    onClientQuery = { query ->
+                        executeInference(query)
+                    }
+                    onCycleLanguage = {
+                        cycleSttLanguage()
+                    }
+                    onClearHistory = {
+                        clearHistory()
+                    }
+                    onFollowUpAction = { turnIndex, actionType ->
+                        executeFollowUpAction(turnIndex, actionType)
+                    }
+                }
+            }
+            webServer?.start(fi.iki.elonen.NanoHTTPD.SOCKET_READ_TIMEOUT, false)
+            val ip = NetworkHelper.getLocalIpAddress(getApplication()) ?: "localhost"
+            val url = "http://$ip:${WebTeleprompterServer.DEFAULT_PORT}"
+            _uiState.update { it.copy(isWebMirrorRunning = true, webMirrorUrl = url) }
+            android.util.Log.i("StealthViewModel", "Web Teleprompter Mirror started at $url")
+            hapticHelper.pulseAnswerReady()
+        } catch (e: Exception) {
+            android.util.Log.e("StealthViewModel", "Failed starting Web Teleprompter Mirror: ${e.message}", e)
+            _uiState.update { it.copy(isWebMirrorRunning = false, webMirrorUrl = null) }
+        }
+    }
+
+    private fun stopWebMirror() {
+        try {
+            webServer?.stop()
+        } catch (_: Exception) {}
+        webServer = null
+        _uiState.update { it.copy(isWebMirrorRunning = false, webMirrorUrl = null) }
+    }
+
+    private fun executeFollowUpAction(turnIndex: Int, actionType: String) {
+        viewModelScope.launch {
+            val turns = _uiState.value.currentTurns
+            val baseTurn = if (turnIndex in turns.indices) turns[turnIndex] else turns.lastOrNull()
+            if (baseTurn == null) return@launch
+
+            _uiState.update { it.copy(isProcessing = true) }
+
+            val followUpPrompt = when (actionType.lowercase()) {
+                "example" -> "Provide a concrete real-world production example or implementation architecture for: ${baseTurn.transcriptEn}. Context: ${baseTurn.answerEn}"
+                "tradeoff" -> "What are the key technical tradeoffs, bottlenecks, and pros/cons regarding: ${baseTurn.transcriptEn}? Context: ${baseTurn.answerEn}"
+                "simpler" -> "Summarize the answer to '${baseTurn.transcriptEn}' into exactly one crisp, high-impact spoken sentence."
+                "deep_dive" -> "Explain the deep internal mechanics, concurrency model, and low-level engineering details for: ${baseTurn.transcriptEn}"
+                else -> "Elaborate further on: ${baseTurn.transcriptEn}"
+            }
+
+            val turn = llmEngine.generateResponse(
+                question = followUpPrompt,
+                recentTurns = turns.takeLast(2),
+                isRomanianEnabled = _uiState.value.isRomanianEnabled,
+                profile = _uiState.value.carrierProfile,
+                forcedEngineType = _uiState.value.activeEngineType
+            )
+
+            val updatedTurn = turn.copy(
+                transcriptEn = "[${actionType.uppercase()}] ${baseTurn.transcriptEn}",
+                matchedCategory = "Follow-Up (${actionType.uppercase()})"
+            )
+
+            _uiState.update { state ->
+                state.copy(
+                    currentTurns = state.currentTurns + updatedTurn,
+                    isProcessing = false,
+                    lastLatencyMs = updatedTurn.latencyMs
+                )
+            }
+            hapticHelper.pulseAnswerReady()
+            StealthOverlayService.updateHudText(getApplication(), updatedTurn.answerEn)
+        }
+    }
+
     override fun onCleared() {
         stopAudioStream()
+        stopWebMirror()
         sttEngine.destroy()
         nativeStt.destroy()
         vadDetector.close()

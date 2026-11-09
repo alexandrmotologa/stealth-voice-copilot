@@ -1,8 +1,13 @@
 package com.copilot.stealth.ui
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
@@ -31,9 +36,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -46,6 +56,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -82,6 +94,20 @@ class StealthActivity : ComponentActivity() {
     private var lastVolumeUpPressTime = 0L
     private var volumeDownPressStartTime = 0L
 
+    private var sensorManager: SensorManager? = null
+    private var proximitySensor: Sensor? = null
+    private val proximityListener = object : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent?) {
+            if (event?.sensor?.type == Sensor.TYPE_PROXIMITY) {
+                val distance = event.values.firstOrNull() ?: return
+                val maxRange = proximitySensor?.maximumRange ?: 5f
+                val isCovered = distance < 3f || distance < maxRange * 0.5f
+                viewModel.processIntent(StealthUiIntent.SetPalmBlackout(isCovered))
+            }
+        }
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+    }
+
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
@@ -99,6 +125,9 @@ class StealthActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         configureLockscreenFlags()
+
+        sensorManager = getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+        proximitySensor = sensorManager?.getDefaultSensor(Sensor.TYPE_PROXIMITY)
 
         val testQuery = intent?.getStringExtra("test_query")
         if (!testQuery.isNullOrBlank()) {
@@ -155,15 +184,27 @@ class StealthActivity : ComponentActivity() {
                         viewModel.processIntent(StealthUiIntent.SetGuidanceLanguage(nextLang))
                     },
                     onCyclePrompterStyle = {
-                        val nextStyle = if (uiState.carrierProfile.prompterStyle == PrompterStyle.ANCHOR_BULLETS) {
-                            PrompterStyle.FULL_SENTENCE
-                        } else {
-                            PrompterStyle.ANCHOR_BULLETS
-                        }
+                        val styles = PrompterStyle.values()
+                        val nextStyle = styles[(uiState.carrierProfile.prompterStyle.ordinal + 1) % styles.size]
                         viewModel.processIntent(StealthUiIntent.SetPrompterStyle(nextStyle))
+                    },
+                    onToggleSearch = {
+                        viewModel.processIntent(StealthUiIntent.ToggleSearch)
+                    },
+                    onSetSearchQuery = { query ->
+                        viewModel.processIntent(StealthUiIntent.SetSearchQuery(query))
+                    },
+                    onTogglePacingCoach = {
+                        viewModel.processIntent(StealthUiIntent.TogglePacingCoach)
                     },
                     onDismissSpeakingCooldown = {
                         viewModel.processIntent(StealthUiIntent.DismissSpeakingCooldown)
+                    },
+                    onToggleWebMirror = {
+                        viewModel.processIntent(StealthUiIntent.ToggleWebMirror)
+                    },
+                    onFollowUpAction = { turnIndex, actionType ->
+                        viewModel.processIntent(StealthUiIntent.ExecuteFollowUpAction(turnIndex, actionType))
                     }
                 )
             }
@@ -177,6 +218,9 @@ class StealthActivity : ComponentActivity() {
             if (!viewModel.uiState.value.isListening) {
                 viewModel.processIntent(StealthUiIntent.ToggleListening)
             }
+        }
+        proximitySensor?.let {
+            sensorManager?.registerListener(proximityListener, it, SensorManager.SENSOR_DELAY_UI)
         }
     }
 
@@ -245,6 +289,12 @@ class StealthActivity : ComponentActivity() {
         }
         return super.onKeyDown(keyCode, event)
     }
+
+
+    override fun onPause() {
+        super.onPause()
+        sensorManager?.unregisterListener(proximityListener)
+    }
 }
 
 @Composable
@@ -282,7 +332,12 @@ fun StealthScreen(
     onConfirmAndApply: () -> Unit = {},
     onCycleGuidanceLanguage: () -> Unit = {},
     onCyclePrompterStyle: () -> Unit = {},
-    onDismissSpeakingCooldown: () -> Unit = {}
+    onToggleSearch: () -> Unit = {},
+    onSetSearchQuery: (String) -> Unit = {},
+    onTogglePacingCoach: () -> Unit = {},
+    onDismissSpeakingCooldown: () -> Unit = {},
+    onToggleWebMirror: () -> Unit = {},
+    onFollowUpAction: (Int, String) -> Unit = { _, _ -> }
 ) {
     val listState = rememberLazyListState()
     val palette = LocalStealthPalette.current
@@ -311,8 +366,80 @@ fun StealthScreen(
                 onOpenTools = { isToolsSheetOpen = true },
                 onOpenEngineSelection = onOpenEngineSelection,
                 onToggleWhisper = onToggleWhisper,
-                onCycleSttLanguage = onCycleSttLanguage
+                onCycleSttLanguage = onCycleSttLanguage,
+                onToggleWebMirror = onToggleWebMirror
             )
+
+            // Session History Search Bar (Phase 7)
+            if (uiState.isSearchOpen) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF121A15))
+                        .border(1.dp, palette.statusActive.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Search",
+                        tint = palette.statusActive,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    BasicTextField(
+                        value = uiState.searchQuery,
+                        onValueChange = onSetSearchQuery,
+                        textStyle = TextStyle(
+                            color = Color.White,
+                            fontSize = 12.5.sp,
+                            fontFamily = FontFamily.Monospace
+                        ),
+                        cursorBrush = SolidColor(palette.statusActive),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        decorationBox = { innerTextField ->
+                            if (uiState.searchQuery.isEmpty()) {
+                                Text(
+                                    text = "Search transcript or answers...",
+                                    color = palette.textMetadata.copy(alpha = 0.6f),
+                                    fontSize = 12.5.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                            innerTextField()
+                        }
+                    )
+                    if (uiState.searchQuery.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .clickable { onSetSearchQuery("") }
+                                .padding(4.dp)
+                        ) {
+                            Text("✕", color = palette.textMetadata, fontSize = 11.sp)
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color(0xFF1E2822))
+                            .clickable { onToggleSearch() }
+                            .padding(horizontal = 7.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = "CLOSE",
+                            color = palette.textMetadata,
+                            fontSize = 9.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
 
             // Collapsible Freight Math Bar (if opened in settings)
             if (uiState.isCalculatorVisible) {
@@ -340,6 +467,21 @@ fun StealthScreen(
                 }
             }
 
+            // Filter turns by active search query
+            val displayedTurns = remember(uiState.currentTurns, uiState.searchQuery) {
+                if (uiState.searchQuery.isBlank()) {
+                    uiState.currentTurns
+                } else {
+                    val q = uiState.searchQuery.trim().lowercase()
+                    uiState.currentTurns.filter { turn ->
+                        turn.transcriptEn.lowercase().contains(q) ||
+                        turn.answerEn.lowercase().contains(q) ||
+                        (turn.transcriptRo?.lowercase()?.contains(q) == true) ||
+                        (turn.answerRo?.lowercase()?.contains(q) == true)
+                    }
+                }
+            }
+
             // Teleprompter Feed (TV News Anchor High-Legibility Display)
             Box(
                 modifier = Modifier
@@ -347,7 +489,7 @@ fun StealthScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 14.dp)
             ) {
-                if (uiState.currentTurns.isEmpty() && uiState.livePartialTranscript.isNullOrBlank() && !uiState.isProcessing) {
+                if (displayedTurns.isEmpty() && uiState.livePartialTranscript.isNullOrBlank() && !uiState.isProcessing) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -356,32 +498,50 @@ fun StealthScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.padding(24.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(10.dp)
-                                    .clip(CircleShape)
-                                    .background(if (uiState.isListening) palette.statusActive else palette.textMetadata)
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = if (uiState.isListening) "● TELEPROMPTER: PASSIVE LISTENING" else "TELEPROMPTER: STANDBY",
-                                color = if (uiState.isListening) palette.statusActive else palette.textMetadata,
-                                fontSize = 12.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = if (uiState.isListening)
-                                    "Microphone is listening passively.\nOptimal talking points will appear here instantly."
-                                else
-                                    "Tap microphone to begin passive listening.",
-                                color = palette.textMetadata,
-                                fontSize = 12.sp,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                lineHeight = 18.sp
-                            )
+                            if (uiState.searchQuery.isNotBlank()) {
+                                Text(
+                                    text = "NO MATCHES FOUND",
+                                    color = palette.textMetadata,
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.sp
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "No recorded turns matched \"${uiState.searchQuery}\"",
+                                    color = palette.textMetadata,
+                                    fontSize = 11.sp,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .clip(CircleShape)
+                                        .background(if (uiState.isListening) palette.statusActive else palette.textMetadata)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = if (uiState.isListening) "● TELEPROMPTER: PASSIVE LISTENING" else "TELEPROMPTER: STANDBY",
+                                    color = if (uiState.isListening) palette.statusActive else palette.textMetadata,
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.sp
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = if (uiState.isListening)
+                                        "Microphone is listening passively.\nOptimal talking points will appear here instantly."
+                                    else
+                                        "Tap microphone to begin passive listening.",
+                                    color = palette.textMetadata,
+                                    fontSize = 12.sp,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    lineHeight = 18.sp
+                                )
+                            }
                         }
                     }
                 } else {
@@ -389,11 +549,15 @@ fun StealthScreen(
                         state = listState,
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        items(uiState.currentTurns, key = { it.id }) { turn ->
+                        itemsIndexed(displayedTurns, key = { _, turn -> turn.id }) { index, turn ->
                             TurnCard(
                                 turn = turn,
                                 isRomanianEnabled = uiState.isRomanianEnabled,
-                                fontSize = uiState.carrierProfile.fontSize
+                                fontSize = uiState.carrierProfile.fontSize,
+                                isPacingCoachEnabled = uiState.isPacingCoachEnabled,
+                                onFollowUpAction = { actionType ->
+                                    onFollowUpAction(index, actionType)
+                                }
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                         }
@@ -427,6 +591,7 @@ fun StealthScreen(
                 onToggleListening = onToggleListening,
                 onClearHistory = onClearHistory,
                 onExportTranscript = onExportTranscript,
+                onToggleSearch = onToggleSearch,
                 onOpenTools = { isToolsSheetOpen = true }
             )
         }
@@ -479,6 +644,8 @@ fun StealthScreen(
                 onOpenEngineSelection = onOpenEngineSelection,
                 onCycleGuidanceLanguage = onCycleGuidanceLanguage,
                 onCyclePrompterStyle = onCyclePrompterStyle,
+                onToggleWebMirror = onToggleWebMirror,
+                onTogglePacingCoach = onTogglePacingCoach,
                 onScenarioSelected = { prompt ->
                     isToolsSheetOpen = false
                     onScenarioSelected(prompt)
@@ -536,6 +703,15 @@ fun StealthScreen(
                     onDismiss = onToggleMockSimulator
                 )
             }
+        }
+
+        // Palm-to-Screen Emergency Blackout
+        if (uiState.isPalmBlackoutActive) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+            )
         }
     }
 }

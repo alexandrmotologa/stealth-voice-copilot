@@ -45,6 +45,7 @@ fun TopStatusBar(
     onOpenEngineSelection: () -> Unit,
     onToggleWhisper: (() -> Unit)? = null,
     onCycleSttLanguage: (() -> Unit)? = null,
+    onToggleWebMirror: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val palette = LocalStealthPalette.current
@@ -185,6 +186,26 @@ fun TopStatusBar(
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold
                 )
+            }
+
+            if (uiState.isWebMirrorRunning) {
+                Spacer(modifier = Modifier.width(6.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0xFF0F1E2E))
+                        .border(1.dp, Color(0xFF1B3654), RoundedCornerShape(4.dp))
+                        .clickable(enabled = onToggleWebMirror != null) { onToggleWebMirror?.invoke() }
+                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = "WEB :8765",
+                        color = Color(0xFF38BDF8),
+                        fontSize = 9.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(6.dp))

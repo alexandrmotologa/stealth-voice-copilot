@@ -4,7 +4,7 @@
 
 # Stealth Voice Copilot
 
-**Offline on-device Android assistant for US freight dispatching, logistics, and billing interviews.**
+**Discreet real-time voice teleprompter and interview copilot for Android.**
 
 [![Android](https://img.shields.io/badge/Platform-Android_11+-3DDC84?logo=android&logoColor=white)](https://android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.0-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
@@ -14,12 +14,19 @@
 
 <br/>
 
-<img src="docs/images/stealth_voice_copilot_demo.gif" width="420" alt="Stealth Voice Copilot Demo" />
+<p align="center">
+  <img src="docs/images/stealth_voice_copilot_demo.gif" width="380" alt="Stealth Voice Copilot Live Execution Demo" />
+</p>
 
 <p align="center">
-  <img src="docs/images/live_clean_dialogue.png" width="31%" alt="Live Bilingual Dialogue" />
-  <img src="docs/images/live_tools_drawer.png" width="31%" alt="Stealth Settings and Tools Drawer" />
-  <img src="docs/images/live_clean_listening.png" width="31%" alt="AMOLED Standby and Listening HUD" />
+  <img src="docs/images/live_clean_dialogue.png" width="31%" alt="Live Dialogue with Micro-Actions and Pacing Coach" />
+  <img src="docs/images/live_tools_drawer.png" width="31%" alt="Settings Drawer with Web Mirror and Prompter Styles" />
+  <img src="docs/images/live_profile_sheet.png" width="31%" alt="Candidate Profile with On-Device CV Ingestion" />
+</p>
+
+<p align="center">
+  <img src="docs/images/live_search_clean.png" width="48%" alt="AMOLED In-Session History Search" />
+  <img src="docs/images/live_clean_listening.png" width="48%" alt="AMOLED True Black Standby and Listening HUD" />
 </p>
 
 </div>
@@ -31,6 +38,37 @@ Stealth Voice Copilot is a discreet real-time voice teleprompter and assistant f
 The system supports both cloud-accelerated inference (Google Gemini and Groq Cloud LPU) and local on-device execution (Google Tensor NPU and MediaPipe LLM), operating with graceful offline fallback when no active network is available.
 
 ## Core Capabilities
+
+* **Embedded Web Teleprompter Mirror (LAN `:8765`):**
+  * Built-in HTTP and WebSocket server running directly inside the Android process.
+  * Streams live dialogue turns and teleprompter answers to any laptop browser on the local network (`http://<phone-ip>:8765`).
+  * Optimized AMOLED dark UI designed to sit directly beneath a laptop webcam, matching eye level during video calls.
+  * Bidirectional synchronization: allows typing queries or scenario tests directly from the laptop browser into the phone engine.
+
+* **On-Device Document & CV/Resume Ingestion:**
+  * Extracts text from PDF, TXT, Markdown, and CSV files directly on-device using PDFBox-Android.
+  * Stored in private device SharedPreferences to ground interview answers in actual candidate work history and job requirements.
+  * Zero third-party cloud ingestion pipeline, maintaining absolute privacy for personal data.
+
+* **Follow-Up Micro-Actions:**
+  * Quick 1-tap expansion buttons beneath each prompter card: `+ Example`, `+ Tradeoff`, `Simpler`, `Deep Dive`.
+  * Generates targeted secondary turns in sub-500ms using the active cloud or local LLM engine.
+
+* **Keyword Anchors Display Mode:**
+  * Alternative prompter delivery style formatting answers into high-glance bracketed badges (`[Anchor 1] [Anchor 2] [Anchor 3]`).
+  * Enables glance-and-speak conversational flow rather than reciting complete sentences.
+
+* **Proximity Sensor Palm Blackout:**
+  * Hardware proximity sensor listener instantly blanks the screen to pure `#000000` AMOLED black and mutes prompter audio when a palm or notepad covers the top bezel.
+  * Screen returns to active state immediately when the sensor clears.
+
+* **135 WPM Speaking Pacing Coach:**
+  * Discreet pulsing cadence indicator bar set to standard 135 words per minute broadcast speech pace.
+  * Displays estimated speaking duration in seconds based on answer word count.
+
+* **In-Session History Search & Markdown Export:**
+  * Instant text search bar filtering turns by interviewer transcript or teleprompter answers in real time.
+  * Clean Markdown export formatted with session date, candidate role, questions, answers, and latency metrics copied directly to clipboard.
 
 * **Dual-Mode Speech Recognition with Instant Toggle:**
   * **RO➔EN (Romanian to English):** Routes speech capture directly to Google Speech Services (`ro-RO`) cloud acoustic models. Accurately transcribes spoken Romanian without vendor ROM offline pack limitations, translates the inquiry to English, and synthesizes English teleprompter talking points plus Romanian coaching summaries.

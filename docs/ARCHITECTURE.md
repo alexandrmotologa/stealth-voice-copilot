@@ -162,7 +162,7 @@ The `PromptBuilder` constructs prompt contexts tailored to the active profile mo
 * **General Conversational:** Unconstrained assistant answering freely on any topic.
 * **Carrier Fleet Dispatch:** Preloaded with commercial fleet credentials, equipment types, and standard accessorial rates.
 * **ASR Phonetic Reconstruction Protocol:** Instructs the LLM to inspect the incoming utterance for speech recognition slips (such as non-native accents or cross-lingual phonetic bleed), reconstruct the true intended question in `transcript_en` and `transcript_ro`, and format the teleprompter output accordingly.
-* **Prompter Styles:** Supports `ANCHOR_BULLETS` (conversational hook plus 2 to 3 bold bullet points) and `FULL_SENTENCE` (fluent verbatim read-aloud text).
+* **Prompter Styles:** Supports `ANCHOR_BULLETS` (conversational hook plus 2 to 3 bold bullet points), `FULL_SENTENCE` (fluent verbatim read-aloud text), and `KEYWORD_ANCHORS` (bracketed high-glance keyword chips).
 
 ## 6. User Interface and Presentation
 
@@ -183,3 +183,28 @@ The `PromptBuilder` constructs prompt contexts tailored to the active profile mo
 * `Volume Up` double click: Dispatches `StealthUiIntent.ClearHistory`, clearing all dialogue context.
 * `Volume Down` long press: Dispatches `StealthUiIntent.ToggleRomanian`, instantly toggling translation.
 * `Auto-Standby Watchdog`: Pauses audio engine and releases locks after 180 seconds of silence.
+
+### 6.4 Embedded Web Teleprompter Mirror Subsystem
+* Embedded HTTP and WebSocket server running on local port `8765` using Netty/Ktor.
+* Streams live state snapshots and turns to any browser on the local Wi-Fi network (`http://<phone-ip>:8765`).
+* Allows prompter viewing on an external monitor or laptop directly under the webcam for natural eye contact.
+* Supports bidirectional query injection and scenario triggering from the remote browser.
+
+### 6.5 On-Device Document & CV Ingestion Engine
+* `PdfDocumentExtractor` extracts text from PDF, Markdown, TXT, and CSV documents directly on device using PDFBox-Android.
+* Ingested resumes and job specifications are sanitized, truncated to token boundaries, and persisted in private app storage.
+* Injected into `PromptBuilder` to ground answers directly in candidate experience and job criteria with zero external cloud transmission.
+
+### 6.6 Follow-Up Micro-Actions Dispatcher
+* Instant action chips beneath each teleprompter turn: `+ Example`, `+ Tradeoff`, `Simpler`, and `Deep Dive`.
+* Injects structured prompt directives against the parent turn context, generating specialized secondary turns in sub-500ms.
+
+### 6.7 Speaking Pacing Coach and Keyword Anchors
+* Cadence metronome calibrated to 135 words per minute.
+* Dynamic reading duration timer and visual progress bar guide speaking speed without cognitive overload.
+* `KEYWORD_ANCHORS` prompter mode extracts core architectural concepts into high-glance chips for natural speaking.
+
+### 6.8 Proximity Sensor Palm Blackout and In-Session Search
+* Hardware proximity sensor listener automatically blanks the AMOLED display to `#000000` and mutes earpiece audio when the user covers the phone with a palm or notepad.
+* Real-time search filters the dialogue history by keyword or phrase.
+* `SessionExportManager` generates formatted Markdown summaries with questions, answers, and latency metrics copied directly to the clipboard.

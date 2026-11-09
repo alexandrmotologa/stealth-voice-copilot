@@ -67,3 +67,24 @@ Benchmarks measured on Google Pixel 6 Pro and Xiaomi Mi 9T Pro:
 1. **Volume Up Double Click**: Verify that pressing Volume Up twice within 400 milliseconds clears dialogue history and resets context to an empty state within 50 milliseconds.
 2. **Auto-Standby**: Verify that after 180 seconds of silence, the audio engine enters standby mode, reducing CPU usage below 1%.
 3. **Memory Stability**: Verify that continuous 30-minute test cycles maintain total app memory footprint under 2.2 GB without native heap leakage.
+
+## 6. Advanced Features Verification
+
+1. **Web Teleprompter Mirror Latency:**
+   * Connect laptop browser to `http://<phone-ip>:8765`.
+   * Assert WebSocket round-trip transmission latency is under 15ms.
+   * Verify query injection from laptop browser triggers prompt rendering on both phone and browser simultaneously.
+2. **On-Device CV Ingestion:**
+   * Ingest sample PDF resume (up to 5 pages) via storage picker.
+   * Verify PDFBox-Android extracts plain text in under 150ms without blocking UI thread.
+   * Verify that subsequent technical responses cite candidate work history and tech stack accurately.
+3. **Follow-Up Micro-Actions:**
+   * Tap `+ Tradeoff` or `+ Example` on an active dialogue card.
+   * Assert sub-500ms generation of focused secondary turn linked to parent question context.
+4. **Proximity Palm Blackout:**
+   * Cover device top bezel proximity sensor with palm.
+   * Verify display transitions to pure `#000000` AMOLED blackout within 20ms and audio prompter mutes.
+   * Uncover sensor and verify instant display restoration.
+5. **Session Export Integrity:**
+   * Tap Export Session button.
+   * Verify clipboard receives structured Markdown containing session timestamp, candidate profile, and all dialogue turns with latency badges.

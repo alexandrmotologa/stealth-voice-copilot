@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
@@ -35,6 +36,7 @@ fun ControlsRow(
     onToggleListening: () -> Unit,
     onClearHistory: () -> Unit,
     onExportTranscript: () -> Unit,
+    onToggleSearch: () -> Unit = {},
     onOpenTools: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -44,7 +46,7 @@ fun ControlsRow(
         modifier = modifier
             .fillMaxWidth()
             .background(palette.background)
-            .padding(horizontal = 24.dp, vertical = 14.dp),
+            .padding(horizontal = 20.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -96,6 +98,24 @@ fun ControlsRow(
                 contentDescription = "Toggle Listening",
                 tint = if (uiState.isListening) palette.background else palette.textAnswer,
                 modifier = Modifier.size(28.dp)
+            )
+        }
+
+        // Search in Session History button
+        val isSearchActive = uiState.isSearchOpen || uiState.searchQuery.isNotBlank()
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .clip(CircleShape)
+                .background(if (isSearchActive) Color(0xFF142418) else Color(0xFF141414))
+                .clickable { onToggleSearch() },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = "Search Session",
+                tint = if (isSearchActive) palette.statusActive else palette.textMetadata,
+                modifier = Modifier.size(20.dp)
             )
         }
 

@@ -70,6 +70,9 @@ object PromptBuilder {
             PrompterStyle.ANCHOR_BULLETS -> """
                 - In 'answer_en', provide a natural conversational opening hook sentence, followed by 2-3 crisp bullet points starting with '• ' highlighting key technical principles, tradeoffs, or metrics in bold/caps so the speaker can glance and talk naturally.
             """.trimIndent()
+            PrompterStyle.KEYWORD_ANCHORS -> """
+                - In 'answer_en', provide 3 to 5 discrete high-glance concept anchor chips enclosed in brackets: e.g. '[Primary Principle] [Key Tradeoff] [Core Metric or Tech] [Action]'. Do NOT write full sentences in 'answer_en', only crisp bracketed anchor phrases for glance-and-speak flow.
+            """.trimIndent()
             PrompterStyle.FULL_SENTENCE -> """
                 - In 'answer_en', provide 1 to 2 fluent, confident, natural spoken broadcast English sentences that can be read aloud verbatim off the screen.
             """.trimIndent()

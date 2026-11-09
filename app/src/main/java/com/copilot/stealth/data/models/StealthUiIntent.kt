@@ -46,4 +46,10 @@ sealed interface StealthUiIntent {
     data class CalculateDetention(val appointmentTime: String, val inTime: String, val outTime: String, val rate: Double) : StealthUiIntent
     data class CalculateRpm(val totalRate: Double, val loadedMiles: Double, val deadheadMiles: Double) : StealthUiIntent
     data class CalculateHos(val remainingHours: Double, val tripMiles: Double) : StealthUiIntent
+    data object ToggleWebMirror : StealthUiIntent
+    data class ExecuteFollowUpAction(val turnIndex: Int, val actionType: String) : StealthUiIntent
+    data class SetPalmBlackout(val isBlackout: Boolean) : StealthUiIntent
+    data object ToggleSearch : StealthUiIntent
+    data class SetSearchQuery(val query: String) : StealthUiIntent
+    data object TogglePacingCoach : StealthUiIntent
 }

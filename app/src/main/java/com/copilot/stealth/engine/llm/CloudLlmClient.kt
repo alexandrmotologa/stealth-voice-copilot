@@ -174,7 +174,7 @@ class CloudLlmClient(
                 put("model", targetModel)
                 put("messages", messagesArray)
                 put("temperature", 0.3)
-                put("max_tokens", 500)
+                put("max_tokens", 1024)
                 if (useJsonMode) {
                     val respFormat = JSONObject().apply { put("type", "json_object") }
                     put("response_format", respFormat)
@@ -313,11 +313,23 @@ class CloudLlmClient(
         val transcriptEnRegex = Regex("\"transcript_en\"\\s*:\\s*\"(.*?)(?<!\\\\)\"", RegexOption.DOT_MATCHES_ALL)
         val transcriptRoRegex = Regex("\"transcript_ro\"\\s*:\\s*\"(.*?)(?<!\\\\)\"", RegexOption.DOT_MATCHES_ALL)
 
-        val answerEn = answerEnRegex.find(text)?.groupValues?.get(1)
+        var answerEn = answerEnRegex.find(text)?.groupValues?.get(1)
             ?.replace("\\\"", "\"")?.replace("\\n", "\n")?.trim()
 
-        val answerRo = answerRoRegex.find(text)?.groupValues?.get(1)
+        if (answerEn.isNullOrBlank()) {
+            val unclosedRegex = Regex("\"answer_en\"\\s*:\\s*\"([^\"]*)", RegexOption.DOT_MATCHES_ALL)
+            answerEn = unclosedRegex.find(text)?.groupValues?.get(1)
+                ?.replace("\\\"", "\"")?.replace("\\n", "\n")?.trim()
+        }
+
+        var answerRo = answerRoRegex.find(text)?.groupValues?.get(1)
             ?.replace("\\\"", "\"")?.replace("\\n", "\n")?.trim()
+
+        if (answerRo.isNullOrBlank()) {
+            val unclosedRoRegex = Regex("\"answer_ro\"\\s*:\\s*\"([^\"]*)", RegexOption.DOT_MATCHES_ALL)
+            answerRo = unclosedRoRegex.find(text)?.groupValues?.get(1)
+                ?.replace("\\\"", "\"")?.replace("\\n", "\n")?.trim()
+        }
 
         val transcriptEn = transcriptEnRegex.find(text)?.groupValues?.get(1)
             ?.replace("\\\"", "\"")?.replace("\\n", "\n")?.trim()

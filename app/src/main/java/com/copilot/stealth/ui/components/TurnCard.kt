@@ -1,11 +1,19 @@
 package com.copilot.stealth.ui.components
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -50,6 +58,8 @@ fun TurnCard(
     turn: CopilotTurn,
     isRomanianEnabled: Boolean,
     fontSize: TeleprompterFontSize = TeleprompterFontSize.LARGE,
+    isPacingCoachEnabled: Boolean = true,
+    onFollowUpAction: ((actionType: String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val palette = LocalStealthPalette.current
@@ -207,25 +217,65 @@ fun TurnCard(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Suggested English Answer formatted with high visual clarity & selected font size
-        val highlightedAnswer = FreightTextFormatter.format(
-            text = turn.answerEn,
-            baseColor = Color.White,
-            overrideColors = FreightTextFormatter.HighlightColors(
-                money = palette.highlightMoney,
-                acronym = palette.highlightAcronym,
-                time = palette.highlightTime
-            )
-        )
+        // Check for bracketed keyword anchors: [Point 1] [Point 2]
+        val anchorBadges = remember(turn.answerEn) {
+            Regex("\\[(.*?)\\]").findAll(turn.answerEn).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.toList()
+        }
 
-        Text(
-            text = highlightedAnswer,
-            color = Color.White,
-            fontSize = answerFontSize,
-            fontWeight = FontWeight.SemiBold,
-            lineHeight = answerLineHeight,
-            letterSpacing = 0.2.sp
-        )
+        if (anchorBadges.size >= 2) {
+            @OptIn(ExperimentalLayoutApi::class)
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                anchorBadges.forEach { badgeText ->
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFF0F2618))
+                            .border(1.2.dp, palette.statusActive, RoundedCornerShape(6.dp))
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = badgeText,
+                            color = palette.statusActive,
+                            fontSize = 14.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+                }
+            }
+        } else {
+            // Suggested English Answer formatted with high visual clarity & selected font size
+            val highlightedAnswer = FreightTextFormatter.format(
+                text = turn.answerEn,
+                baseColor = Color.White,
+                overrideColors = FreightTextFormatter.HighlightColors(
+                    money = palette.highlightMoney,
+                    acronym = palette.highlightAcronym,
+                    time = palette.highlightTime
+                )
+            )
+
+            Text(
+                text = highlightedAnswer,
+                color = Color.White,
+                fontSize = answerFontSize,
+                fontWeight = FontWeight.SemiBold,
+                lineHeight = answerLineHeight,
+                letterSpacing = 0.2.sp
+            )
+        }
+
+        // Discrete 135 WPM Speaking Pacing Coach Bar
+        if (isPacingCoachEnabled) {
+            PacingCoachBar(text = turn.answerEn, palette = palette)
+        }
 
         // Section 3: Answer Explanation & Guidance in Target Language (if enabled)
         val langCode = turn.translationLangCode ?: "RO"
@@ -293,6 +343,38 @@ fun TurnCard(
             }
         }
 
+        // Section 3.5: Rapid Follow-Up Micro-Actions
+        if (onFollowUpAction != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                listOf(
+                    "+ Example" to "example",
+                    "+ Tradeoff" to "tradeoff",
+                    "Simpler" to "simpler",
+                    "Deep Dive" to "deep_dive"
+                ).forEach { (label, actionType) ->
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color(0xFF141414))
+                            .border(1.dp, Color(0xFF242424), RoundedCornerShape(4.dp))
+                            .clickable { onFollowUpAction(actionType) }
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = label,
+                            color = Color(0xFFAAAAAA),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(10.dp))
 
         // Metadata footer: Model, Latency, Confidence
@@ -328,5 +410,66 @@ fun TurnCard(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun PacingCoachBar(
+    text: String,
+    palette: com.copilot.stealth.ui.theme.StealthPalette
+) {
+    val wordCount = remember(text) {
+        text.split(Regex("\\s+")).count { it.isNotBlank() }
+    }
+    if (wordCount < 6) return
+
+    val estSeconds = (wordCount / 135.0 * 60.0).toInt().coerceAtLeast(4)
+
+    val infiniteTransition = rememberInfiniteTransition(label = "PacingBreath")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.25f,
+        targetValue = 0.85f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 444, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "PulseAlpha"
+    )
+
+    Spacer(modifier = Modifier.height(8.dp))
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(4.dp))
+            .background(Color(0xFF0C140E))
+            .border(1.dp, Color(0xFF162B1D), RoundedCornerShape(4.dp))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(palette.statusActive.copy(alpha = pulseAlpha))
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "135 WPM PACING COACH",
+                color = palette.statusActive.copy(alpha = 0.9f),
+                fontSize = 8.5.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp
+            )
+        }
+
+        Text(
+            text = "~${estSeconds}s speech ($wordCount words)",
+            color = palette.textMetadata,
+            fontSize = 8.5.sp,
+            fontFamily = FontFamily.Monospace
+        )
     }
 }

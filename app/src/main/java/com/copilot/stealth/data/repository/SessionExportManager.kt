@@ -47,6 +47,49 @@ class SessionExportManager(private val context: Context? = null) {
         return sb.toString().trimEnd()
     }
 
+    fun formatMarkdown(turns: List<CopilotTurn>, profile: com.copilot.stealth.data.models.CarrierProfile? = null): String {
+        if (turns.isEmpty()) return "# Interview Session\n\n*No turns recorded in this session.*"
+
+        val sb = StringBuilder()
+        sb.append("# Interview Teleprompter Session Transcript\n\n")
+        sb.append("**Session Date:** ${dateFormat.format(Date())}  \n")
+        sb.append("**Total Dialog Turns:** ${turns.size}  \n")
+        if (profile != null && profile.targetRole.isNotBlank()) {
+            sb.append("**Target Role:** ${profile.targetRole}  \n")
+        }
+        if (profile != null && profile.targetCompany.isNotBlank()) {
+            sb.append("**Target Company:** ${profile.targetCompany}  \n")
+        }
+        sb.append("\n---\n\n")
+
+        turns.forEachIndexed { index, turn ->
+            sb.append("### Turn #${index + 1}: ${turn.transcriptEn}\n\n")
+            if (!turn.transcriptRo.isNullOrBlank() && !turn.transcriptRo.equals(turn.transcriptEn, ignoreCase = true)) {
+                sb.append("> *Source Translation:* \"${turn.transcriptRo}\"\n\n")
+            }
+            sb.append("**Suggested Teleprompter Answer:**\n")
+            sb.append("```text\n${turn.answerEn}\n```\n\n")
+
+            if (!turn.answerRo.isNullOrBlank()) {
+                sb.append("**Coaching & Guidance:**\n")
+                sb.append("${turn.answerRo}\n\n")
+            }
+
+            if (turn.followUpQuestions.isNotEmpty()) {
+                sb.append("**Anticipated Follow-Up Inquiries:**\n")
+                turn.followUpQuestions.forEach { f ->
+                    sb.append("- $f\n")
+                }
+                sb.append("\n")
+            }
+
+            sb.append("*Telemetry:* `${turn.latencyMs}ms latency` | `Category: ${turn.matchedCategory ?: "GENERAL"}`\n\n")
+            sb.append("---\n\n")
+        }
+
+        return sb.toString().trimEnd()
+    }
+
     /**
      * Encrypts plaintext using AES-256-GCM with a 12-byte IV and 128-bit authentication tag.
      * Output format: [12 bytes IV][ciphertext + auth tag]

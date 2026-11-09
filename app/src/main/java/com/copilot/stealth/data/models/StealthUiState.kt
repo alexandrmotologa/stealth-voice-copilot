@@ -53,5 +53,11 @@ data class StealthUiState(
     val lastDetentionResult: DetentionResult? = null,
     val lastRpmResult: RpmResult? = null,
     val lastHosResult: HosReachResult? = null,
+    val isWebMirrorRunning: Boolean = false,
+    val webMirrorUrl: String? = null,
+    val isPalmBlackoutActive: Boolean = false,
+    val isSearchOpen: Boolean = false,
+    val searchQuery: String = "",
+    val isPacingCoachEnabled: Boolean = true,
     val carrierProfile: CarrierProfile = CarrierProfile()
 )
